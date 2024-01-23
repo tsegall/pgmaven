@@ -2,6 +2,7 @@ package utils
 
 type Options struct {
 	AnalyzeTable         string
+	AnalyzeTables        bool
 	CreateTables         bool
 	DBName               string
 	DBNames              string

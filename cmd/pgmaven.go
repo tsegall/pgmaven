@@ -78,6 +78,7 @@ func main() {
 	flag.BoolVar(&options.Version, "version", false, "print version number")
 
 	flag.StringVar(&options.AnalyzeTable, "analyzeTable", "", "analyze the supplied table")
+	flag.BoolVar(&options.AnalyzeTables, "analyzeTables", false, "analyze all tables")
 	flag.BoolVar(&options.CreateTables, "createTables", false, "create tables required for tracking activity over time")
 	flag.BoolVar(&options.DuplicateIndexes, "duplicateIndexes", false, "check for duplicate indexes")
 	flag.StringVar(&options.Query, "executeQuery", "", "query (single row) to execute across all DBs provided")
@@ -185,21 +186,41 @@ func main() {
 		}
 
 		if options.DuplicateIndexes {
-			command, err := plugins.NewCommand("DuplicateIndexes")
+			command, err := plugins.NewDetector("DuplicateIndexes")
 			if err != nil {
 				log.Println("ERROR: Failed to locate command\n", err)
 				continue
 			}
 			command.Execute()
+			for _, issue := range command.GetIssues() {
+				issue.Dump()
+			}
+			continue
 		}
 
 		if options.AnalyzeTable != "" {
-			command, err := plugins.NewCommand("AnalyzeTable")
+			command, err := plugins.NewDetector("AnalyzeTable")
 			if err != nil {
 				log.Println("ERROR: Failed to locate command\n", err)
 				continue
 			}
 			command.Execute(options.AnalyzeTable)
+			for _, issue := range command.GetIssues() {
+				issue.Dump()
+			}
+			continue
+		}
+
+		if options.AnalyzeTables {
+			command, err := plugins.NewDetector("AnalyzeTables")
+			if err != nil {
+				log.Println("ERROR: Failed to locate command\n", err)
+				continue
+			}
+			command.Execute()
+			for _, issue := range command.GetIssues() {
+				issue.Dump()
+			}
 			continue
 		}
 
