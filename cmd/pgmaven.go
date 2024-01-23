@@ -1,3 +1,18 @@
+/*
+ * Copyright 2024 Tim Segall
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package main
 
 import (
@@ -10,7 +25,10 @@ import (
 	"strings"
 	"time"
 
-	"cobber.com/dbinfo"
+	"pgmaven/internal/dbutils"
+	"pgmaven/internal/plugins"
+	"pgmaven/internal/utils"
+
 	"github.com/elliotchance/sshtunnel"
 	"golang.org/x/crypto/ssh"
 
@@ -28,27 +46,6 @@ const (
 	username   = "tsegall"
 )
 
-type Options struct {
-	DBName               string
-	DBNames              string
-	CreateTables         bool
-	DuplicateIndex       bool
-	ResetIndexData       bool
-	Host                 string
-	Password             string
-	Port                 int
-	Query                string
-	QueryRows            string
-	Schema               string
-	SnapShot             bool
-	TunnelHost           string
-	TunnelPort           int
-	TunnelPrivateKeyFile string
-	TunnelUsername       string
-	Username             string
-	Verbose              bool
-}
-
 func PrivateKeyFileWithPassphrase(file string, passphrase []byte) ssh.AuthMethod {
 	buffer, err := os.ReadFile(file)
 	if err != nil {
@@ -64,26 +61,29 @@ func PrivateKeyFileWithPassphrase(file string, passphrase []byte) ssh.AuthMethod
 }
 
 func main() {
-	var options Options
+	var options utils.Options
 
-	flag.BoolVar(&options.CreateTables, "createTables", false, "create tables required for tracking activity over time")
 	flag.StringVar(&options.DBNames, "dbnames", "", "file with a list of dbnames to connect to")
 	flag.StringVar(&options.DBName, "dbname", dbname, "database name to connect to")
-	flag.BoolVar(&options.DuplicateIndex, "duplicateIndex", false, "check for duplicate indexes")
 	flag.StringVar(&options.Host, "host", host, "database server host or socket directory (default: 'local socket')")
 	flag.StringVar(&options.Password, "password", password, "password for DB")
 	flag.IntVar(&options.Port, "port", port, "database server port (default: '5432')")
-	flag.StringVar(&options.Query, "query", "", "query (single row) to execute across all DBs provided")
-	flag.StringVar(&options.QueryRows, "queryRows", "", "query (multiple rows) to execute across all DBs provided")
-	flag.BoolVar(&options.ResetIndexData, "resetIndexData", false, "reset index data")
 	flag.StringVar(&options.Schema, "schema", schema, "database schema (default: 'public')")
-	flag.BoolVar(&options.SnapShot, "snapShot", false, "snapshot statistics tables")
 	flag.StringVar(&options.TunnelHost, "tunnelHost", "", "hostname of tunnel server")
 	flag.IntVar(&options.TunnelPort, "tunnelPort", tunnelPort, "port for tunnel server default: '22')")
 	flag.StringVar(&options.TunnelPrivateKeyFile, "tunnelPrivateKeyFile", "", "path to private key file")
 	flag.StringVar(&options.TunnelUsername, "tunnelUsername", "", "username for tunnel server")
 	flag.StringVar(&options.Username, "username", username, "database user name")
 	flag.BoolVar(&options.Verbose, "verbose", false, "enable verbose logging")
+	flag.BoolVar(&options.Version, "version", false, "print version number")
+
+	flag.StringVar(&options.AnalyzeTable, "analyzeTable", "", "analyze the supplied table")
+	flag.BoolVar(&options.CreateTables, "createTables", false, "create tables required for tracking activity over time")
+	flag.BoolVar(&options.DuplicateIndexes, "duplicateIndexes", false, "check for duplicate indexes")
+	flag.StringVar(&options.Query, "executeQuery", "", "query (single row) to execute across all DBs provided")
+	flag.StringVar(&options.QueryRows, "queryRows", "", "query (multiple rows) to execute across all DBs provided")
+	flag.BoolVar(&options.ResetIndexData, "resetIndexData", false, "reset index data")
+	flag.BoolVar(&options.SnapShot, "snapShot", false, "snapshot statistics tables")
 
 	flag.Parse()
 
@@ -167,7 +167,7 @@ func main() {
 			continue
 		}
 
-		dbinfo.Init(db)
+		dbutils.Init(db, options)
 
 		// If we are processing multiple databases then output the name of the DB we are working on
 		if options.DBNames != "" {
@@ -176,7 +176,7 @@ func main() {
 
 		if options.Query != "" {
 			var result string
-			err, result = dbinfo.ExecuteQueryRow(options.Query)
+			err, result = dbutils.ExecuteQueryRow(options.Query)
 			if err != nil {
 				log.Printf("ERROR: Database: %s, Query '%s' failed with error: %v\n", dbname, options.Query, err)
 				continue
@@ -184,31 +184,62 @@ func main() {
 			fmt.Printf("Database: %s, Query '%s', result: %s\n", dbname, options.Query, result)
 		}
 
-		if options.QueryRows != "" {
-			err = dbinfo.OutputQueryRows(options.QueryRows)
+		if options.DuplicateIndexes {
+			command, err := plugins.NewCommand("DuplicateIndexes")
 			if err != nil {
-				log.Printf("ERROR: Database: %s, Query '%s' failed with error: %v\n", dbname, options.QueryRows, err)
+				log.Println("ERROR: Failed to locate command\n", err)
 				continue
 			}
+			command.Execute()
 		}
 
-		if options.DuplicateIndex {
-			dbinfo.DuplicateIndexes()
+		if options.AnalyzeTable != "" {
+			command, err := plugins.NewCommand("AnalyzeTable")
+			if err != nil {
+				log.Println("ERROR: Failed to locate command\n", err)
+				continue
+			}
+			command.Execute(options.AnalyzeTable)
+			continue
+		}
+
+		if options.QueryRows != "" {
+			command, err := plugins.NewCommand("ExecuteQuery")
+			if err != nil {
+				log.Println("ERROR: Failed to locate command\n", err)
+				continue
+			}
+			command.Execute(options.QueryRows)
 			continue
 		}
 
 		if options.ResetIndexData {
-			dbinfo.ResetIndexData()
+			command, err := plugins.NewCommand("ResetIndexData")
+			if err != nil {
+				log.Println("ERROR: Failed to locate command\n", err)
+				continue
+			}
+			command.Execute()
 			continue
 		}
 
 		if options.CreateTables {
-			dbinfo.CreateTables()
+			command, err := plugins.NewCommand("CreateTables")
+			if err != nil {
+				log.Println("ERROR: Failed to locate command\n", err)
+				continue
+			}
+			command.Execute()
 			continue
 		}
 
 		if options.SnapShot {
-			dbinfo.SnapShot()
+			command, err := plugins.NewCommand("SnapShot")
+			if err != nil {
+				log.Println("ERROR: Failed to locate command\n", err)
+				continue
+			}
+			command.Execute()
 			continue
 		}
 
