@@ -134,8 +134,8 @@ func TableCount(tableName string) (error, string) {
 }
 
 // IndexDefinition returns the DDL for the named index.
-func IndexDefinition(tableName string) string {
-	query := fmt.Sprintf(`SELECT pg_get_indexdef('%s'::regclass);`, tableName)
+func IndexDefinition(indexName string) string {
+	query := fmt.Sprintf(`SELECT pg_get_indexdef('%s'::regclass);`, indexName)
 	err, ret := ExecuteQueryRow(query)
 	if err != nil {
 		log.Printf("ERROR: IndexDefinition failed with error: %v\n", err)

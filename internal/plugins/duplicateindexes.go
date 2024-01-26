@@ -16,7 +16,7 @@ type DuplicateIndexes struct {
 var duplicateIndexIssues []utils.Issue
 
 // DuplicateIndexes reports on redundant indexes.
-func (d *DuplicateIndexes) Execute(args ...interface{}) {
+func (d *DuplicateIndexes) Execute(args ...string) {
 	duplicateIndexIssues = make([]utils.Issue, 0)
 
 	duplicateIndexQuery := `

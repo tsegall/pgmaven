@@ -21,7 +21,7 @@ type AnalyzeTable struct {
 }
 
 // DuplicateIndexes reports on redundant indexes.
-func (d *AnalyzeTable) Execute(args ...interface{}) {
+func (d *AnalyzeTable) Execute(args ...string) {
 	d.issues = make([]utils.Issue, 0)
 
 	query := fmt.Sprintf(`select n_live_tup, insert_dt from pgmaven_pg_stat_user_tables where relname = '%s' and last_analyze is not null order by insert_dt`, args[0])
@@ -61,7 +61,7 @@ func (d *AnalyzeTable) Execute(args ...interface{}) {
 	// 	fmt.Printf("%s: %d\n", elt.when, elt.value)
 	// }
 
-	detail := fmt.Sprintf("Table: %s is growing at %.2f%% per day\n", args[0], dailyPercent)
+	detail := fmt.Sprintf("Table: %s, current rows: %d, is growing at %.2f%% per day\n", args[0], series[len(series)-1].value, dailyPercent)
 
 	if dailyPercent > 0.5 {
 		d.issues = append(d.issues, utils.Issue{IssueType: "TableGrowth", Detail: detail, Solution: "REVIEW table - consider partitioning and/or pruning\n"})

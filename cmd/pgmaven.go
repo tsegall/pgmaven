@@ -77,10 +77,9 @@ func main() {
 	flag.BoolVar(&options.Verbose, "verbose", false, "enable verbose logging")
 	flag.BoolVar(&options.Version, "version", false, "print version number")
 
-	flag.StringVar(&options.AnalyzeTable, "analyzeTable", "", "analyze the supplied table")
-	flag.BoolVar(&options.AnalyzeTables, "analyzeTables", false, "analyze all tables")
+	flag.StringVar(&options.Detect, "detect", "", "execute the issue detection routine specified")
+
 	flag.BoolVar(&options.CreateTables, "createTables", false, "create tables required for tracking activity over time")
-	flag.BoolVar(&options.DuplicateIndexes, "duplicateIndexes", false, "check for duplicate indexes")
 	flag.StringVar(&options.Query, "executeQuery", "", "query (single row) to execute across all DBs provided")
 	flag.StringVar(&options.QueryRows, "queryRows", "", "query (multiple rows) to execute across all DBs provided")
 	flag.BoolVar(&options.ResetIndexData, "resetIndexData", false, "reset index data")
@@ -112,9 +111,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("ERROR: Failed to establish tunnel, error: %v\n", err)
 		}
-	}
 
-	if tunnel != nil {
 		if options.Verbose {
 			tunnel.Log = log.New(os.Stdout, "", log.Ldate|log.Lmicroseconds)
 		}
@@ -185,39 +182,17 @@ func main() {
 			fmt.Printf("Database: %s, Query '%s', result: %s\n", dbname, options.Query, result)
 		}
 
-		if options.DuplicateIndexes {
-			command, err := plugins.NewDetector("DuplicateIndexes")
-			if err != nil {
-				log.Println("ERROR: Failed to locate command\n", err)
-				continue
-			}
-			command.Execute()
-			for _, issue := range command.GetIssues() {
-				issue.Dump()
-			}
-			continue
-		}
+		// flag.BoolVar(&options.AnalyzeTables, "analyzeTables", false, "analyze all tables")
+		// flag.BoolVar(&options.DuplicateIndexes, "duplicateIndexes", false, "check for duplicate indexes")
 
-		if options.AnalyzeTable != "" {
-			command, err := plugins.NewDetector("AnalyzeTable")
+		if options.Detect != "" {
+			detectOptions := strings.Split(options.Detect, ":")
+			command, err := plugins.NewDetector(detectOptions[0])
 			if err != nil {
 				log.Println("ERROR: Failed to locate command\n", err)
 				continue
 			}
-			command.Execute(options.AnalyzeTable)
-			for _, issue := range command.GetIssues() {
-				issue.Dump()
-			}
-			continue
-		}
-
-		if options.AnalyzeTables {
-			command, err := plugins.NewDetector("AnalyzeTables")
-			if err != nil {
-				log.Println("ERROR: Failed to locate command\n", err)
-				continue
-			}
-			command.Execute()
+			command.Execute(detectOptions[1:]...)
 			for _, issue := range command.GetIssues() {
 				issue.Dump()
 			}

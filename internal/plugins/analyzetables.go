@@ -11,7 +11,7 @@ type AnalyzeTables struct {
 }
 
 // DuplicateIndexes reports on redundant indexes.
-func (d *AnalyzeTables) Execute(args ...interface{}) {
+func (d *AnalyzeTables) Execute(args ...string) {
 	d.issues = make([]utils.Issue, 0)
 
 	err, tableNames := dbutils.TableList(100000)
@@ -22,7 +22,6 @@ func (d *AnalyzeTables) Execute(args ...interface{}) {
 
 	tableAnalyzer := new(AnalyzeTable)
 	for _, tableName := range tableNames {
-		fmt.Printf("Analyzing %s\n", tableName)
 		tableAnalyzer.Execute(tableName)
 		d.issues = append(d.issues, tableAnalyzer.GetIssues()...)
 	}

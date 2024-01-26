@@ -13,7 +13,7 @@ type Issue struct {
 func (i *Issue) Dump() {
 	fmt.Printf("ISSUE: %s\n", i.IssueType)
 	fmt.Printf("DETAIL:\n%s", indent(i.Detail))
-	fmt.Printf("SOLUTION:\n%s", indent(i.Solution))
+	fmt.Printf("SUGGESTION:\n%s", indent(i.Solution))
 }
 
 func indent(s string) (ret string) {

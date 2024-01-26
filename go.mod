@@ -1,6 +1,6 @@
 module pgmaven
 
-go 1.20
+go 1.21
 
 require (
 	github.com/elliotchance/sshtunnel v1.6.1

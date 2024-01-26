@@ -11,7 +11,7 @@ type Command interface {
 type CommandBuilder func() Command
 
 type Detector interface {
-	Execute(args ...interface{})
+	Execute(args ...string)
 	GetIssues() []utils.Issue
 }
 type DetectorBuilder func() Detector
@@ -25,9 +25,11 @@ var commandRegistry map[string]CommandBuilder = map[string]CommandBuilder{
 }
 
 var detectorRegistry map[string]DetectorBuilder = map[string]DetectorBuilder{
+	"All":              func() Detector { return &AllIssues{} },
 	"AnalyzeTable":     func() Detector { return &AnalyzeTable{} },
 	"AnalyzeTables":    func() Detector { return &AnalyzeTables{} },
 	"DuplicateIndexes": func() Detector { return &DuplicateIndexes{} },
+	"UnusedIndexes":    func() Detector { return &UnusedIndexes{} },
 }
 
 func NewCommand(name string) (cmd Command, err error) {
