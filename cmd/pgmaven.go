@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"pgmaven/internal/commands"
 	"pgmaven/internal/dbutils"
 	"pgmaven/internal/plugins"
 	"pgmaven/internal/utils"
@@ -77,13 +78,17 @@ func main() {
 	flag.BoolVar(&options.Verbose, "verbose", false, "enable verbose logging")
 	flag.BoolVar(&options.Version, "version", false, "print version number")
 
-	flag.StringVar(&options.Detect, "detect", "", "execute the issue detection routine specified")
+	flag.StringVar(&options.Command, "command", "", "execute the command specified (--command Help for options)")
+	flag.StringVar(&options.Detect, "detect", "", "execute the issue detection specified (--detect Help for options)")
 
-	flag.BoolVar(&options.CreateTables, "createTables", false, "create tables required for tracking activity over time")
-	flag.StringVar(&options.Query, "executeQuery", "", "query (single row) to execute across all DBs provided")
-	flag.StringVar(&options.QueryRows, "queryRows", "", "query (multiple rows) to execute across all DBs provided")
-	flag.BoolVar(&options.ResetIndexData, "resetIndexData", false, "reset index data")
-	flag.BoolVar(&options.SnapShot, "snapShot", false, "snapshot statistics tables")
+	// flag.BoolVar(&options.CreateTables, "createTables", false, "create tables required for tracking activity over time")
+	// flag.StringVar(&options.QueryRow, "queryRow", "", "query (single row) to execute across all DBs provided")
+	// flag.StringVar(&options.QueryRows, "queryRows", "", "query (multiple rows) to execute across all DBs provided")
+	// flag.BoolVar(&options.ResetIndexData, "resetIndexData", false, "reset index data")
+	// flag.BoolVar(&options.SnapShot, "snapShot", false, "snapshot statistics tables")
+	// flag.BoolVar(&options.Summary, "summary", false, "status summary")
+	// flag.BoolVar(&options.AnalyzeTables, "analyzeTables", false, "analyze all tables")
+	// flag.BoolVar(&options.DuplicateIndexes, "duplicateIndexes", false, "check for duplicate indexes")
 
 	flag.Parse()
 
@@ -172,70 +177,28 @@ func main() {
 			fmt.Printf("Database: %s\n", dbname)
 		}
 
-		if options.Query != "" {
-			var result string
-			err, result = dbutils.ExecuteQueryRow(options.Query)
-			if err != nil {
-				log.Printf("ERROR: Database: %s, Query '%s' failed with error: %v\n", dbname, options.Query, err)
-				continue
-			}
-			fmt.Printf("Database: %s, Query '%s', result: %s\n", dbname, options.Query, result)
-		}
-
-		// flag.BoolVar(&options.AnalyzeTables, "analyzeTables", false, "analyze all tables")
-		// flag.BoolVar(&options.DuplicateIndexes, "duplicateIndexes", false, "check for duplicate indexes")
-
 		if options.Detect != "" {
 			detectOptions := strings.Split(options.Detect, ":")
-			command, err := plugins.NewDetector(detectOptions[0])
+			detector, err := plugins.NewDetector(detectOptions[0])
 			if err != nil {
-				log.Println("ERROR: Failed to locate command\n", err)
+				log.Println("ERROR: Failed to locate detector\n", err)
 				continue
 			}
-			command.Execute(detectOptions[1:]...)
-			for _, issue := range command.GetIssues() {
+			detector.Execute(detectOptions[1:]...)
+			for _, issue := range detector.GetIssues() {
 				issue.Dump()
 			}
 			continue
 		}
 
-		if options.QueryRows != "" {
-			command, err := plugins.NewCommand("ExecuteQuery")
+		if options.Command != "" {
+			commandOptions := strings.Split(options.Command, ":")
+			command, err := commands.NewCommand(commandOptions[0])
 			if err != nil {
 				log.Println("ERROR: Failed to locate command\n", err)
 				continue
 			}
-			command.Execute(options.QueryRows)
-			continue
-		}
-
-		if options.ResetIndexData {
-			command, err := plugins.NewCommand("ResetIndexData")
-			if err != nil {
-				log.Println("ERROR: Failed to locate command\n", err)
-				continue
-			}
-			command.Execute()
-			continue
-		}
-
-		if options.CreateTables {
-			command, err := plugins.NewCommand("CreateTables")
-			if err != nil {
-				log.Println("ERROR: Failed to locate command\n", err)
-				continue
-			}
-			command.Execute()
-			continue
-		}
-
-		if options.SnapShot {
-			command, err := plugins.NewCommand("SnapShot")
-			if err != nil {
-				log.Println("ERROR: Failed to locate command\n", err)
-				continue
-			}
-			command.Execute()
+			command.Execute(commandOptions[1:]...)
 			continue
 		}
 

@@ -1,4 +1,4 @@
-package plugins
+package commands
 
 import (
 	"database/sql"
@@ -11,8 +11,8 @@ import (
 type QueryRows struct {
 }
 
-func (command *QueryRows) Execute(args ...interface{}) {
-	err := dbutils.ExecuteQueryRows(args[0].(string), dump)
+func (command *QueryRows) Execute(args ...string) {
+	err := dbutils.ExecuteQueryRows(args[0], dump)
 	if err != nil {
 		log.Printf("ERROR: Database: %s, Query '%s' failed with error: %v\n", dbutils.GetDBName(), args[0], err)
 	}

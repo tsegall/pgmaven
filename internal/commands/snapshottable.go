@@ -1,4 +1,4 @@
-package plugins
+package commands
 
 import (
 	"fmt"
@@ -6,10 +6,10 @@ import (
 	"pgmaven/internal/dbutils"
 )
 
-type SnapShotTable struct {
+type SnapshotTable struct {
 }
 
-func (command *SnapShotTable) Execute(args ...interface{}) {
+func (command *SnapshotTable) Execute(args ...string) {
 	query := fmt.Sprintf("INSERT INTO pgmaven_%s select * from %s;", args[0], args[0])
 
 	_, err := dbutils.GetDatabase().Exec(query)

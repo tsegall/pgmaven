@@ -1,18 +1,15 @@
 package utils
 
 type Options struct {
-	CreateTables         bool
+	Command              string
 	DBName               string
 	DBNames              string
 	Detect               string
-	ResetIndexData       bool
 	Host                 string
 	Password             string
 	Port                 int
-	Query                string
-	QueryRows            string
 	Schema               string
-	SnapShot             bool
+	Summary              bool
 	TunnelHost           string
 	TunnelPort           int
 	TunnelPrivateKeyFile string

@@ -1,4 +1,4 @@
-package plugins
+package commands
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 type ResetIndexData struct {
 }
 
-func (command *ResetIndexData) Execute(args ...interface{}) {
+func (command *ResetIndexData) Execute(args ...string) {
 	// Reset all Index data
 	err, _ := dbutils.ExecuteQueryRow(`select pg_stat_reset();`)
 	if err != nil {
@@ -19,7 +19,7 @@ func (command *ResetIndexData) Execute(args ...interface{}) {
 	// We have reset the index data so also need to restart our tracking
 	dropTables()
 	new(CreateTables).Execute()
-	new(SnapShot).Execute()
+	new(Snapshot).Execute()
 
 	return
 }

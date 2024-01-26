@@ -1,4 +1,4 @@
-package plugins
+package commands
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ type CreateTables struct {
 }
 
 // CreateTables will create the tables required to track index activity over time.
-func (command *CreateTables) Execute(args ...interface{}) {
+func (command *CreateTables) Execute(args ...string) {
 	for _, table := range dbutils.StatsTables {
 		createTable(table)
 	}
