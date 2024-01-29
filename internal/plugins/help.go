@@ -14,13 +14,9 @@ type Help struct {
 func (d *Help) Execute(args ...string) {
 	keys := maps.Keys(detectorRegistry)
 	sort.Strings(keys)
-	for i, key := range keys {
-		if i != 0 {
-			fmt.Print(", ")
-		}
-		fmt.Print(key)
+	for _, key := range keys {
+		fmt.Printf("%s - %s\n", key, detectorRegistry[key].HelpText)
 	}
-	fmt.Println()
 }
 
 func (d *Help) GetIssues() []utils.Issue {

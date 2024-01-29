@@ -81,15 +81,6 @@ func main() {
 	flag.StringVar(&options.Command, "command", "", "execute the command specified (--command Help for options)")
 	flag.StringVar(&options.Detect, "detect", "", "execute the issue detection specified (--detect Help for options)")
 
-	// flag.BoolVar(&options.CreateTables, "createTables", false, "create tables required for tracking activity over time")
-	// flag.StringVar(&options.QueryRow, "queryRow", "", "query (single row) to execute across all DBs provided")
-	// flag.StringVar(&options.QueryRows, "queryRows", "", "query (multiple rows) to execute across all DBs provided")
-	// flag.BoolVar(&options.ResetIndexData, "resetIndexData", false, "reset index data")
-	// flag.BoolVar(&options.SnapShot, "snapShot", false, "snapshot statistics tables")
-	// flag.BoolVar(&options.Summary, "summary", false, "status summary")
-	// flag.BoolVar(&options.AnalyzeTables, "analyzeTables", false, "analyze all tables")
-	// flag.BoolVar(&options.DuplicateIndexes, "duplicateIndexes", false, "check for duplicate indexes")
-
 	flag.Parse()
 
 	var tunnel *sshtunnel.SSHTunnel

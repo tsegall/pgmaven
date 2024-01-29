@@ -10,13 +10,12 @@ import (
 )
 
 type UnusedIndexes struct {
+	issues []utils.Issue
 }
 
-var unusedIndexIssues []utils.Issue
-
 // UnusedIndexes reports on unused indexes.
-func (d *UnusedIndexes) Execute(args ...string) {
-	unusedIndexIssues = make([]utils.Issue, 0)
+func (u *UnusedIndexes) Execute(args ...string) {
+	u.issues = make([]utils.Issue, 0)
 
 	unusedIndexQuery := `
 	SELECT
@@ -38,7 +37,7 @@ func (d *UnusedIndexes) Execute(args ...string) {
 	(SELECT 1 FROM pg_catalog.pg_inherits AS inh
 	 WHERE inh.inhrelid = stat.indexrelid);
 `
-	err := dbutils.ExecuteQueryRows(unusedIndexQuery, unusedIndexProcessor)
+	err := dbutils.ExecuteQueryRows(unusedIndexQuery, nil, unusedIndexProcessor, u)
 	if err != nil {
 		log.Printf("ERROR: UnusedIndexQuery failed with error: %v\n", err)
 	}
@@ -50,7 +49,8 @@ func quote(s string) string {
 
 // unusedIndexProcessor is invoked for every row of the Unused Index Query.
 // The Query returns a row with the following format (schemaname, tablename, indexname, index_size)
-func unusedIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}) {
+func unusedIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
+	u := self.(*UnusedIndexes)
 	tableName := string((*values[1].(*interface{})).([]uint8))
 	indexName := string((*values[2].(*interface{})).([]uint8))
 	indexSize := (*values[3].(*interface{})).(int64)
@@ -59,9 +59,9 @@ func unusedIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values [
 	index1Definition := dbutils.IndexDefinition(quote(indexName))
 	indexDetail := fmt.Sprintf("Index definition: '%s'\n", index1Definition)
 
-	unusedIndexIssues = append(unusedIndexIssues, utils.Issue{IssueType: "UnusedIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
+	u.issues = append(u.issues, utils.Issue{IssueType: "UnusedIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
 }
 
-func (d *UnusedIndexes) GetIssues() []utils.Issue {
-	return unusedIndexIssues
+func (u *UnusedIndexes) GetIssues() []utils.Issue {
+	return u.issues
 }

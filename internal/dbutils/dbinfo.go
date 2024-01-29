@@ -41,11 +41,11 @@ func GetDatabase() *sql.DB {
 	return database
 }
 
-func ExecuteQueryRows(query string, processor func(int, []*sql.ColumnType, []interface{})) error {
+func ExecuteQueryRows(query string, queryArgs []any, processor func(int, []*sql.ColumnType, []interface{}, any), processorArg any) error {
 	var rows *sql.Rows
 	var err error
 
-	rows, err = database.Query(query)
+	rows, err = database.Query(query, queryArgs...)
 
 	if err != nil {
 		fmt.Printf("ERROR: Failed to query database, error: %v\n", err)
@@ -72,7 +72,7 @@ func ExecuteQueryRows(query string, processor func(int, []*sql.ColumnType, []int
 			fmt.Println(err)
 			continue
 		}
-		processor(rowNumber, columnsTypes, vals)
+		processor(rowNumber, columnsTypes, vals, processorArg)
 		rowNumber++
 	}
 	if rows.Err() != nil {
@@ -116,10 +116,10 @@ func TableList(minRows int) (error, []string) {
 	return nil, ret
 }
 
-func ExecuteQueryRow(query string) (error, string) {
+func ExecuteQueryRow(query string) (error, any) {
 	row := database.QueryRow(query)
 
-	var result string
+	var result any
 	err := row.Scan(&result)
 	if err != nil {
 		log.Printf("ERROR: Failed to get row, error: %v\n", err)
@@ -127,10 +127,6 @@ func ExecuteQueryRow(query string) (error, string) {
 	}
 
 	return nil, result
-}
-
-func TableCount(tableName string) (error, string) {
-	return ExecuteQueryRow(fmt.Sprintf("SELECT count(*) from %s", tableName))
 }
 
 // IndexDefinition returns the DDL for the named index.
@@ -142,7 +138,7 @@ func IndexDefinition(indexName string) string {
 		return ""
 	}
 
-	return ret
+	return ret.(string)
 }
 
 var StatsTables = [...]string{"pg_stat_user_indexes", "pg_statio_user_indexes", "pg_stat_user_tables", "pg_statio_user_tables", "pg_stat_statements"}

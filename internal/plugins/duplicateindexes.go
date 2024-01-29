@@ -11,13 +11,12 @@ import (
 )
 
 type DuplicateIndexes struct {
+	issues []utils.Issue
 }
-
-var duplicateIndexIssues []utils.Issue
 
 // DuplicateIndexes reports on redundant indexes.
 func (d *DuplicateIndexes) Execute(args ...string) {
-	duplicateIndexIssues = make([]utils.Issue, 0)
+	d.issues = make([]utils.Issue, 0)
 
 	duplicateIndexQuery := `
 SELECT table_name, pg_size_pretty(sum(pg_relation_size(idx))::bigint) as size,
@@ -30,7 +29,7 @@ FROM (
 GROUP BY table_name, key HAVING count(*)>1
 ORDER BY sum(pg_relation_size(idx)) DESC;
 `
-	err := dbutils.ExecuteQueryRows(duplicateIndexQuery, duplicateIndexProcessor)
+	err := dbutils.ExecuteQueryRows(duplicateIndexQuery, nil, duplicateIndexProcessor, d)
 	if err != nil {
 		log.Printf("ERROR: DuplicateIndexQuery failed with error: %v\n", err)
 	}
@@ -38,7 +37,8 @@ ORDER BY sum(pg_relation_size(idx)) DESC;
 
 // duplicateIndexProcess is invoked for every row of the Duplicate Index Query.
 // The Query returns a row with the following format (tableName, index size, index1, index2) - where index1 and index2 are duplicated.
-func duplicateIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}) {
+func duplicateIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
+	d := self.(*DuplicateIndexes)
 	tableName := string((*values[0].(*interface{})).([]uint8))
 	indexSize := (*values[1].(*interface{})).(string)
 	index1 := string((*values[2].(*interface{})).([]uint8))
@@ -51,13 +51,13 @@ func duplicateIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, value
 
 	// If Index 2 is unique then kill Index 1
 	if strings.Contains(index2Definition, " UNIQUE ") {
-		duplicateIndexIssues = append(duplicateIndexIssues, utils.Issue{IssueType: "DuplicateIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX %s\n", index1)})
+		d.issues = append(d.issues, utils.Issue{IssueType: "DuplicateIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX %s\n", index1)})
 		return
 	}
 
-	duplicateIndexIssues = append(duplicateIndexIssues, utils.Issue{IssueType: "DuplicateIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX %s\n", index2)})
+	d.issues = append(d.issues, utils.Issue{IssueType: "DuplicateIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX %s\n", index2)})
 }
 
 func (d *DuplicateIndexes) GetIssues() []utils.Issue {
-	return duplicateIndexIssues
+	return d.issues
 }

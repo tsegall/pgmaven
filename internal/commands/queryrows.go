@@ -11,14 +11,14 @@ import (
 type QueryRows struct {
 }
 
-func (command *QueryRows) Execute(args ...string) {
-	err := dbutils.ExecuteQueryRows(args[0], dump)
+func (q *QueryRows) Execute(args ...string) {
+	err := dbutils.ExecuteQueryRows(args[0], nil, dump, q)
 	if err != nil {
 		log.Printf("ERROR: Database: %s, Query '%s' failed with error: %v\n", dbutils.GetDBName(), args[0], err)
 	}
 }
 
-func dump(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}) {
+func dump(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, sefl any) {
 	if rowNumber == 1 {
 		for i, columnType := range columnTypes {
 			if i != 0 {
