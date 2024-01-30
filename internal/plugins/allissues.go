@@ -18,6 +18,10 @@ func (d *AllIssues) Execute(args ...string) {
 	sub.Execute()
 	d.issues = append(d.issues, sub.GetIssues()...)
 
+	sub, _ = NewDetector("SillyIndexes")
+	sub.Execute()
+	d.issues = append(d.issues, sub.GetIssues()...)
+
 	sub, _ = NewDetector("UnusedIndexes")
 	sub.Execute()
 	d.issues = append(d.issues, sub.GetIssues()...)

@@ -26,15 +26,23 @@ import (
 var (
 	database *sql.DB
 	options  utils.Options
+	dbname   string
+	schema   string
 )
 
-func Init(db *sql.DB, opts utils.Options) {
+func Init(db *sql.DB, o utils.Options, d string, s string) {
 	database = db
-	options = opts
+	options = o
+	dbname = d
+	schema = s
 }
 
 func GetDBName() string {
-	return options.DBName
+	return dbname
+}
+
+func GetSchema() string {
+	return schema
 }
 
 func GetDatabase() *sql.DB {
@@ -86,15 +94,15 @@ func TableList(minRows int) (error, []string) {
 	var err error
 
 	if minRows == -1 {
-		rows, err = database.Query(`SELECT table_name FROM information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE' and table_name not ilike 'PGMAVEN_%'`)
+		rows, err = database.Query(`SELECT table_name FROM information_schema.tables where table_schema = $1 and table_type = 'BASE TABLE' and table_name not ilike 'PGMAVEN_%'`, schema)
 	} else {
 		rows, err = database.Query(`
 			SELECT table_name FROM information_schema.tables, pg_stat_user_tables
 			where table_name = relname
-		  	  and table_schema = 'public'
+		  	  and table_schema = $1
 		  	  and table_type = 'BASE TABLE'
 		  	  and table_name not ilike 'PGMAVEN_%'
-		  	  and n_live_tup > $1`, minRows)
+		  	  and n_live_tup > $2`, schema, minRows)
 	}
 	if err != nil {
 		fmt.Printf("ERROR: Failed to query database, error: %v\n", err)

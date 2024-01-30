@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	dbname     = "testdb"
+	dbname     = ""
 	host       = "localhost"
 	port       = 5432
 	password   = "<SETME>"
@@ -118,6 +118,9 @@ func main() {
 
 	var dbnames []string
 	if options.DBNames != "" {
+		if options.DBName != "" {
+			log.Fatalf("ERROR: Cannot specify both dbname and dbnames options\n")
+		}
 		content, err := os.ReadFile(options.DBNames)
 		if err != nil {
 			log.Fatalf("ERROR: Failed to open file, error %v\n", err)
@@ -161,7 +164,7 @@ func main() {
 			continue
 		}
 
-		dbutils.Init(db, options)
+		dbutils.Init(db, options, dbname, options.Schema)
 
 		// If we are processing multiple databases then output the name of the DB we are working on
 		if options.DBNames != "" {

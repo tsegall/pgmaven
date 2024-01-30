@@ -18,7 +18,7 @@ func (u *UnusedIndexes) Execute(args ...string) {
 	u.issues = make([]utils.Issue, 0)
 
 	unusedIndexQuery := `
-	SELECT
+SELECT
 	stat.schemaname,
 	stat.relname AS tablename,
 	stat.indexrelname AS indexname,

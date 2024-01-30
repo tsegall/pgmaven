@@ -22,6 +22,7 @@ var detectorRegistry map[string]DetectorDetails = map[string]DetectorDetails{
 	"DuplicateIndexes": {"Check for duplicate indexes", func() Detector { return &DuplicateIndexes{} }},
 	"Help":             {"Output usage", func() Detector { return &Help{} }},
 	"Queries":          {"Report queries with significant impact on the system", func() Detector { return &Queries{} }},
+	"SillyIndexes":     {"Check for silly indexes", func() Detector { return &SillyIndexes{} }},
 	"UnusedIndexes":    {"Check for unused indexes", func() Detector { return &UnusedIndexes{} }},
 }
 
