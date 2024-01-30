@@ -19,22 +19,18 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-
-	"pgmaven/internal/utils"
 )
 
 var (
 	database *sql.DB
-	options  utils.Options
+	options  DBOptions
 	dbname   string
-	schema   string
 )
 
-func Init(db *sql.DB, o utils.Options, d string, s string) {
+func Init(db *sql.DB, o DBOptions, d string) {
 	database = db
 	options = o
 	dbname = d
-	schema = s
 }
 
 func GetDBName() string {
@@ -42,7 +38,7 @@ func GetDBName() string {
 }
 
 func GetSchema() string {
-	return schema
+	return options.Schema
 }
 
 func GetDatabase() *sql.DB {
@@ -89,12 +85,12 @@ func ExecuteQueryRows(query string, queryArgs []any, processor func(int, []*sql.
 	return nil
 }
 
-func TableList(minRows int) (error, []string) {
+func TableList(minRows int) ([]string, error) {
 	var rows *sql.Rows
 	var err error
 
 	if minRows == -1 {
-		rows, err = database.Query(`SELECT table_name FROM information_schema.tables where table_schema = $1 and table_type = 'BASE TABLE' and table_name not ilike 'PGMAVEN_%'`, schema)
+		rows, err = database.Query(`SELECT table_name FROM information_schema.tables where table_schema = $1 and table_type = 'BASE TABLE' and table_name not ilike 'PGMAVEN_%'`, options.Schema)
 	} else {
 		rows, err = database.Query(`
 			SELECT table_name FROM information_schema.tables, pg_stat_user_tables
@@ -102,11 +98,11 @@ func TableList(minRows int) (error, []string) {
 		  	  and table_schema = $1
 		  	  and table_type = 'BASE TABLE'
 		  	  and table_name not ilike 'PGMAVEN_%'
-		  	  and n_live_tup > $2`, schema, minRows)
+		  	  and n_live_tup > $2`, options.Schema, minRows)
 	}
 	if err != nil {
 		fmt.Printf("ERROR: Failed to query database, error: %v\n", err)
-		return err, nil
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -117,30 +113,30 @@ func TableList(minRows int) (error, []string) {
 		err := rows.Scan(&table_name)
 		if err != nil {
 			log.Printf("ERROR: Failed to get row, error: %v\n", err)
-			return err, nil
+			return nil, err
 		}
 		ret = append(ret, table_name)
 	}
-	return nil, ret
+	return ret, nil
 }
 
-func ExecuteQueryRow(query string) (error, any) {
+func ExecuteQueryRow(query string) (any, error) {
 	row := database.QueryRow(query)
 
 	var result any
 	err := row.Scan(&result)
 	if err != nil {
 		log.Printf("ERROR: Failed to get row, error: %v\n", err)
-		return err, ""
+		return "", err
 	}
 
-	return nil, result
+	return result, nil
 }
 
 // IndexDefinition returns the DDL for the named index.
 func IndexDefinition(indexName string) string {
 	query := fmt.Sprintf(`SELECT pg_get_indexdef('%s'::regclass);`, indexName)
-	err, ret := ExecuteQueryRow(query)
+	ret, err := ExecuteQueryRow(query)
 	if err != nil {
 		log.Printf("ERROR: IndexDefinition failed with error: %v\n", err)
 		return ""
@@ -150,9 +146,3 @@ func IndexDefinition(indexName string) string {
 }
 
 var StatsTables = [...]string{"pg_stat_user_indexes", "pg_statio_user_indexes", "pg_stat_user_tables", "pg_statio_user_tables", "pg_stat_statements"}
-
-func recordIssue(issue string, detail string, solution string) {
-	fmt.Printf("ISSUE: %s\n", issue)
-	fmt.Printf("DETAIL:\n%s", detail)
-	fmt.Printf("SOLUTION:\n%s", solution)
-}

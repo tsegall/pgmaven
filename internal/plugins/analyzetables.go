@@ -14,7 +14,7 @@ type AnalyzeTables struct {
 func (a *AnalyzeTables) Execute(args ...string) {
 	a.issues = make([]utils.Issue, 0)
 
-	err, tableNames := dbutils.TableList(100000)
+	tableNames, err := dbutils.TableList(100000)
 	if err != nil {
 		fmt.Printf("ERROR: AnalyzeTables: failed to list tables")
 		return

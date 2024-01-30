@@ -61,7 +61,7 @@ func tableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 	tableName := string((*values[0].(*interface{})).([]uint8))
 
 	query := fmt.Sprintf(`select count(*) from %s`, tableName)
-	err, rows := dbutils.ExecuteQueryRow(query)
+	rows, err := dbutils.ExecuteQueryRow(query)
 	if err != nil {
 		log.Printf("ERROR: Query '%s' failed with error: %v\n", query, err)
 	}

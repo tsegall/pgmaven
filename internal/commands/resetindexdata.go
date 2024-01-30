@@ -20,8 +20,6 @@ func (command *ResetIndexData) Execute(args ...string) {
 	dropTables()
 	new(CreateTables).Execute()
 	new(Snapshot).Execute()
-
-	return
 }
 
 // DropTables will drop the tables required to track index activity over time.

@@ -25,9 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"pgmaven/internal/commands"
 	"pgmaven/internal/dbutils"
-	"pgmaven/internal/plugins"
 	"pgmaven/internal/utils"
 
 	"github.com/elliotchance/sshtunnel"
@@ -62,43 +60,46 @@ func PrivateKeyFileWithPassphrase(file string, passphrase []byte) ssh.AuthMethod
 }
 
 func main() {
-	var options utils.Options
+	var optionsDB dbutils.DBOptions
+	var options Options
 
-	flag.StringVar(&options.DBNames, "dbnames", "", "file with a list of dbnames to connect to")
-	flag.StringVar(&options.DBName, "dbname", dbname, "database name to connect to")
-	flag.StringVar(&options.Host, "host", host, "database server host or socket directory (default: 'local socket')")
-	flag.StringVar(&options.Password, "password", password, "password for DB")
-	flag.IntVar(&options.Port, "port", port, "database server port (default: '5432')")
-	flag.StringVar(&options.Schema, "schema", schema, "database schema (default: 'public')")
-	flag.StringVar(&options.TunnelHost, "tunnelHost", "", "hostname of tunnel server")
-	flag.IntVar(&options.TunnelPort, "tunnelPort", tunnelPort, "port for tunnel server default: '22')")
-	flag.StringVar(&options.TunnelPrivateKeyFile, "tunnelPrivateKeyFile", "", "path to private key file")
-	flag.StringVar(&options.TunnelUsername, "tunnelUsername", "", "username for tunnel server")
-	flag.StringVar(&options.Username, "username", username, "database user name")
+	flag.StringVar(&optionsDB.DBNames, "dbnames", "", "file with a list of dbnames to connect to")
+	flag.StringVar(&optionsDB.DBName, "dbname", dbname, "database name to connect to")
+	flag.StringVar(&optionsDB.Host, "host", host, "database server host or socket directory (default: 'local socket')")
+	flag.StringVar(&optionsDB.Password, "password", password, "password for DB")
+	flag.IntVar(&optionsDB.Port, "port", port, "database server port (default: '5432')")
+	flag.StringVar(&optionsDB.Schema, "schema", schema, "database schema (default: 'public')")
+	flag.StringVar(&optionsDB.TunnelHost, "tunnelHost", "", "hostname of tunnel server")
+	flag.IntVar(&optionsDB.TunnelPort, "tunnelPort", tunnelPort, "port for tunnel server default: '22')")
+	flag.StringVar(&optionsDB.TunnelPrivateKeyFile, "tunnelPrivateKeyFile", "", "path to private key file")
+	flag.StringVar(&optionsDB.TunnelUsername, "tunnelUsername", "", "username for tunnel server")
+	flag.StringVar(&optionsDB.Username, "username", username, "database user name")
+
 	flag.BoolVar(&options.Verbose, "verbose", false, "enable verbose logging")
 	flag.BoolVar(&options.Version, "version", false, "print version number")
 
-	flag.StringVar(&options.Command, "command", "", "execute the command specified (--command Help for options)")
-	flag.StringVar(&options.Detect, "detect", "", "execute the issue detection specified (--detect Help for options)")
-
 	flag.Parse()
 
+	if options.Version {
+		fmt.Println(utils.GetVersionString())
+		return
+	}
 	var tunnel *sshtunnel.SSHTunnel
 
 	tunnel = nil
 
-	if options.TunnelHost != "" {
+	if optionsDB.TunnelHost != "" {
 		var err error
 		// Setup the tunnel, but do not yet start it yet.
 		tunnel, err = sshtunnel.NewSSHTunnel(
 			// User and host of tunnel server, it will default to port 22
 			// if not specified.
-			options.TunnelUsername+"@"+options.TunnelHost,
+			optionsDB.TunnelUsername+"@"+optionsDB.TunnelHost,
 
-			PrivateKeyFileWithPassphrase(options.TunnelPrivateKeyFile, []byte("Linux is not all bad")),
+			PrivateKeyFileWithPassphrase(optionsDB.TunnelPrivateKeyFile, []byte("Linux is not all bad")),
 
 			// The destination host and port of the actual server.
-			options.Host+":"+strconv.Itoa(options.Port),
+			optionsDB.Host+":"+strconv.Itoa(optionsDB.Port),
 
 			// The local port you want to bind the remote port to.
 			// Specifying "0" will lead to a random port.
@@ -117,17 +118,17 @@ func main() {
 	}
 
 	var dbnames []string
-	if options.DBNames != "" {
-		if options.DBName != "" {
+	if optionsDB.DBNames != "" {
+		if optionsDB.DBName != "" {
 			log.Fatalf("ERROR: Cannot specify both dbname and dbnames options\n")
 		}
-		content, err := os.ReadFile(options.DBNames)
+		content, err := os.ReadFile(optionsDB.DBNames)
 		if err != nil {
 			log.Fatalf("ERROR: Failed to open file, error %v\n", err)
 		}
 		dbnames = strings.Split(string(content), "\n")
 	} else {
-		dbnames = []string{options.DBName}
+		dbnames = []string{optionsDB.DBName}
 	}
 
 	for _, dbname := range dbnames {
@@ -141,11 +142,11 @@ func main() {
 		if tunnel != nil {
 			psqlInfo = fmt.Sprintf("host=%s port=%d user=%s "+
 				"password=%s dbname=%s sslmode=disable",
-				"localhost", tunnel.Local.Port, options.Username, options.Password, dbname)
+				"localhost", tunnel.Local.Port, optionsDB.Username, optionsDB.Password, dbname)
 		} else {
 			psqlInfo = fmt.Sprintf("host=%s port=%d user=%s "+
 				"password=%s dbname=%s sslmode=disable",
-				options.Host, options.Port, options.Username, options.Password, dbname)
+				optionsDB.Host, optionsDB.Port, optionsDB.Username, optionsDB.Password, dbname)
 		}
 
 		if options.Verbose {
@@ -164,36 +165,11 @@ func main() {
 			continue
 		}
 
-		dbutils.Init(db, options, dbname, options.Schema)
+		dbutils.Init(db, optionsDB, dbname)
 
 		// If we are processing multiple databases then output the name of the DB we are working on
-		if options.DBNames != "" {
+		if optionsDB.DBNames != "" {
 			fmt.Printf("Database: %s\n", dbname)
-		}
-
-		if options.Detect != "" {
-			detectOptions := strings.Split(options.Detect, ":")
-			detector, err := plugins.NewDetector(detectOptions[0])
-			if err != nil {
-				log.Println("ERROR: Failed to locate detector\n", err)
-				continue
-			}
-			detector.Execute(detectOptions[1:]...)
-			for _, issue := range detector.GetIssues() {
-				issue.Dump()
-			}
-			continue
-		}
-
-		if options.Command != "" {
-			commandOptions := strings.Split(options.Command, ":")
-			command, err := commands.NewCommand(commandOptions[0])
-			if err != nil {
-				log.Println("ERROR: Failed to locate command\n", err)
-				continue
-			}
-			command.Execute(commandOptions[1:]...)
-			continue
 		}
 
 		db.Close()
