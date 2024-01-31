@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"fmt"
+	"pgmaven/internal/dbutils"
 	"pgmaven/internal/utils"
 	"sort"
 
@@ -9,6 +10,10 @@ import (
 )
 
 type Help struct {
+	durationMS int64
+}
+
+func (d *Help) Init(ds *dbutils.DataSource) {
 }
 
 func (d *Help) Execute(args ...string) {
@@ -21,4 +26,8 @@ func (d *Help) Execute(args ...string) {
 
 func (d *Help) GetIssues() []utils.Issue {
 	return nil
+}
+
+func (d *Help) GetDurationMS() int64 {
+	return d.durationMS
 }

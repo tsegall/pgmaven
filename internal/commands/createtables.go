@@ -7,24 +7,29 @@ import (
 )
 
 type CreateTables struct {
+	datasource *dbutils.DataSource
+}
+
+func (c *CreateTables) Init(ds *dbutils.DataSource) {
+	c.datasource = ds
 }
 
 // CreateTables will create the tables required to track index activity over time.
-func (command *CreateTables) Execute(args ...string) {
-	for _, table := range dbutils.StatsTables {
-		createTable(table)
+func (c *CreateTables) Execute(args ...string) {
+	for _, table := range StatsTables {
+		c.createTable(table)
 	}
 }
 
-func createTable(tableName string) {
+func (c *CreateTables) createTable(tableName string) {
 	query := fmt.Sprintf("CREATE TABLE pgmaven_%s as table %s with no data;", tableName, tableName)
-	_, err := dbutils.GetDatabase().Exec(query)
+	_, err := c.datasource.GetDatabase().Exec(query)
 	if err != nil {
 		log.Printf("ERROR: CreateTable table creation failed with error: %s\n", err)
 	}
 
 	query = fmt.Sprintf("ALTER TABLE pgmaven_%s ADD COLUMN insert_dt TIMESTAMP DEFAULT NOW();", tableName)
-	_, err = dbutils.GetDatabase().Exec(query)
+	_, err = c.datasource.GetDatabase().Exec(query)
 	if err != nil {
 		log.Printf("ERROR: CreateTable alter table failed with error: %s\n", err)
 	}

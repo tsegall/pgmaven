@@ -9,12 +9,17 @@ import (
 )
 
 type QueryRows struct {
+	datasource *dbutils.DataSource
+}
+
+func (q *QueryRows) Init(ds *dbutils.DataSource) {
+	q.datasource = ds
 }
 
 func (q *QueryRows) Execute(args ...string) {
-	err := dbutils.ExecuteQueryRows(args[0], nil, dump, q)
+	err := q.datasource.ExecuteQueryRows(args[0], nil, dump, q)
 	if err != nil {
-		log.Printf("ERROR: Database: %s, Query '%s' failed with error: %v\n", dbutils.GetDBName(), args[0], err)
+		log.Printf("ERROR: Database: %s, Query '%s' failed with error: %v\n", q.datasource.GetDBName(), args[0], err)
 	}
 }
 

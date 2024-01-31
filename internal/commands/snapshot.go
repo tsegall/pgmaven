@@ -5,11 +5,17 @@ import (
 )
 
 type Snapshot struct {
+	datasource *dbutils.DataSource
 }
 
-func (command *Snapshot) Execute(args ...string) {
+func (s *Snapshot) Init(ds *dbutils.DataSource) {
+	s.datasource = ds
+}
+
+func (s *Snapshot) Execute(args ...string) {
 	snapShotter := new(SnapshotTable)
-	for _, table := range dbutils.StatsTables {
+	snapShotter.Init(s.datasource)
+	for _, table := range StatsTables {
 		snapShotter.Execute(table)
 	}
 }

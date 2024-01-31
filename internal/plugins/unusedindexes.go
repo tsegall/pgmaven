@@ -4,18 +4,26 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
 	"pgmaven/internal/dbutils"
 	"pgmaven/internal/utils"
 )
 
 type UnusedIndexes struct {
-	issues []utils.Issue
+	datasource *dbutils.DataSource
+	issues     []utils.Issue
+	durationMS int64
+}
+
+func (d *UnusedIndexes) Init(ds *dbutils.DataSource) {
+	d.datasource = ds
 }
 
 // UnusedIndexes reports on unused indexes.
-func (u *UnusedIndexes) Execute(args ...string) {
-	u.issues = make([]utils.Issue, 0)
+func (d *UnusedIndexes) Execute(args ...string) {
+	startMS := time.Now().UnixMilli()
+	d.issues = make([]utils.Issue, 0)
 
 	unusedIndexQuery := `
 SELECT
@@ -37,10 +45,12 @@ SELECT
 	(SELECT 1 FROM pg_catalog.pg_inherits AS inh
 	 WHERE inh.inhrelid = stat.indexrelid);
 `
-	err := dbutils.ExecuteQueryRows(unusedIndexQuery, nil, unusedIndexProcessor, u)
+	err := d.datasource.ExecuteQueryRows(unusedIndexQuery, nil, unusedIndexProcessor, d)
 	if err != nil {
 		log.Printf("ERROR: UnusedIndexQuery failed with error: %v\n", err)
 	}
+
+	d.durationMS = time.Now().UnixMilli() - startMS
 }
 
 func quote(s string) string {
@@ -50,18 +60,22 @@ func quote(s string) string {
 // unusedIndexProcessor is invoked for every row of the Unused Index Query.
 // The Query returns a row with the following format (schemaname, tablename, indexname, index_size)
 func unusedIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
-	u := self.(*UnusedIndexes)
+	d := self.(*UnusedIndexes)
 	tableName := string((*values[1].(*interface{})).([]uint8))
 	indexName := string((*values[2].(*interface{})).([]uint8))
 	indexSize := (*values[3].(*interface{})).(int64)
 
 	tableDetail := fmt.Sprintf("Table: %s, Index Size: %d, Unused indexes (%s)\n", tableName, indexSize, indexName)
-	index1Definition := dbutils.IndexDefinition(quote(indexName))
+	index1Definition := d.datasource.IndexDefinition(quote(indexName))
 	indexDetail := fmt.Sprintf("Index definition: '%s'\n", index1Definition)
 
-	u.issues = append(u.issues, utils.Issue{IssueType: "UnusedIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
+	d.issues = append(d.issues, utils.Issue{IssueType: "UnusedIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
 }
 
-func (u *UnusedIndexes) GetIssues() []utils.Issue {
-	return u.issues
+func (d *UnusedIndexes) GetIssues() []utils.Issue {
+	return d.issues
+}
+
+func (d *UnusedIndexes) GetDurationMS() int64 {
+	return d.durationMS
 }

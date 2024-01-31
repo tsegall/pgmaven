@@ -1,8 +1,12 @@
 package commands
 
-import "fmt"
+import (
+	"fmt"
+	"pgmaven/internal/dbutils"
+)
 
 type Command interface {
+	Init(ds *dbutils.DataSource)
 	Execute(args ...string)
 }
 
@@ -21,12 +25,15 @@ var commandRegistry map[string]CommandDetails = map[string]CommandDetails{
 	"Summary":        {"Status summary", func() Command { return &Summary{} }},
 }
 
-func NewCommand(name string) (cmd Command, err error) {
+var StatsTables = [...]string{"pg_stat_user_indexes", "pg_statio_user_indexes", "pg_stat_user_tables", "pg_statio_user_tables", "pg_stat_statements"}
+
+func NewCommand(ds *dbutils.DataSource, name string) (cmd Command, err error) {
 
 	details, ok := commandRegistry[name]
 	if !ok {
 		return cmd, fmt.Errorf("Command '%v' not found (use Help to list options)", name)
 	}
 	cmd = details.Builder()
+	cmd.Init(ds)
 	return
 }

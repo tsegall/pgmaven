@@ -2,12 +2,15 @@ package plugins
 
 import (
 	"fmt"
+	"pgmaven/internal/dbutils"
 	"pgmaven/internal/utils"
 )
 
 type Detector interface {
+	Init(ds *dbutils.DataSource)
 	Execute(args ...string)
 	GetIssues() []utils.Issue
+	GetDurationMS() int64
 }
 type DetectorDetails struct {
 	HelpText string
@@ -26,12 +29,13 @@ var detectorRegistry map[string]DetectorDetails = map[string]DetectorDetails{
 	"UnusedIndexes":    {"Check for unused indexes", func() Detector { return &UnusedIndexes{} }},
 }
 
-func NewDetector(name string) (d Detector, err error) {
+func NewDetector(ds *dbutils.DataSource, name string) (d Detector, err error) {
 
 	details, ok := detectorRegistry[name]
 	if !ok {
 		return d, fmt.Errorf("Detector '%v' not found (use Help to list options)", name)
 	}
 	d = details.Builder()
+	d.Init(ds)
 	return
 }

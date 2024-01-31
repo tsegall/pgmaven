@@ -4,20 +4,29 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
 	"pgmaven/internal/dbutils"
 	"pgmaven/internal/utils"
 )
 
 type SillyIndexes struct {
-	issues []utils.Issue
+	datasource *dbutils.DataSource
+	rows       int64
+	issues     []utils.Issue
+	durationMS int64
 }
 
-const smallTable int64 = 10000
+const smallTable int64 = 1000
+
+func (d *SillyIndexes) Init(ds *dbutils.DataSource) {
+	d.datasource = ds
+}
 
 // SillyIndexes reports on indexes that seem to be silly for a variety of reasons.
-func (s *SillyIndexes) Execute(args ...string) {
-	s.issues = make([]utils.Issue, 0)
+func (d *SillyIndexes) Execute(args ...string) {
+	start := time.Now().UnixMilli()
+	d.issues = make([]utils.Issue, 0)
 
 	tableQuery := `
 	select
@@ -50,24 +59,26 @@ order by
 	table_name
 `
 
-	err := dbutils.ExecuteQueryRows(tableQuery, []any{dbutils.GetSchema(), smallTable}, tableProcessor, s)
+	err := d.datasource.ExecuteQueryRows(tableQuery, []any{d.datasource.GetSchema(), smallTable}, tableProcessor, d)
 	if err != nil {
 		log.Printf("ERROR: Table query failed with error: %v\n", err)
 	}
+
+	d.durationMS = time.Now().UnixMilli() - start
 }
 
 func tableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
-	s := self.(*SillyIndexes)
+	d := self.(*SillyIndexes)
 	tableName := string((*values[0].(*interface{})).([]uint8))
 
 	query := fmt.Sprintf(`select count(*) from %s`, tableName)
-	rows, err := dbutils.ExecuteQueryRow(query)
+	rows, err := d.datasource.ExecuteQueryRow(query)
 	if err != nil {
 		log.Printf("ERROR: Query '%s' failed with error: %v\n", query, err)
 	}
 
-	rowsInt := rows.(int64)
-	if rowsInt < smallTable {
+	d.rows = rows.(int64)
+	if d.rows < smallTable {
 		sillyIndexQuery := `
 		SELECT
 			stat.schemaname,
@@ -89,30 +100,33 @@ func tableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 			(SELECT 1 FROM pg_catalog.pg_inherits AS inh
 			 WHERE inh.inhrelid = stat.indexrelid);
 		`
-		err := dbutils.ExecuteQueryRows(sillyIndexQuery, []any{dbutils.GetSchema(), tableName}, sillyIndexProcessor, s)
+		err := d.datasource.ExecuteQueryRows(sillyIndexQuery, []any{d.datasource.GetSchema(), tableName}, sillyIndexProcessor, d)
 		if err != nil {
 			log.Printf("ERROR: SillyIndexQuery failed with error: %v\n", err)
 		}
 
 	} else {
-		s.issues = append(s.issues, utils.Issue{IssueType: "AnalyzeSuggested", Detail: "n_live_tup < row count\n", Solution: fmt.Sprintf("ANALYZE \"%s\"\n", tableName)})
+		d.issues = append(d.issues, utils.Issue{IssueType: "AnalyzeSuggested", Detail: "n_live_tup < row count\n", Solution: fmt.Sprintf("ANALYZE \"%s\"\n", tableName)})
 	}
-
 }
 
 func sillyIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
-	s := self.(*SillyIndexes)
+	d := self.(*SillyIndexes)
 	tableName := string((*values[1].(*interface{})).([]uint8))
 	indexName := string((*values[2].(*interface{})).([]uint8))
 	indexSize := (*values[3].(*interface{})).(int64)
 
-	tableDetail := fmt.Sprintf("Table: %s, Index Size: %d, Silly indexes (%s)\n", tableName, indexSize, indexName)
-	index1Definition := dbutils.IndexDefinition(quote(indexName))
+	tableDetail := fmt.Sprintf("Table: %s, Rows: %d, Index Size: %d, Silly indexes (%s)\n", tableName, d.rows, indexSize, indexName)
+	index1Definition := d.datasource.IndexDefinition(quote(indexName))
 	indexDetail := fmt.Sprintf("Index definition: '%s'\n", index1Definition)
 
-	s.issues = append(s.issues, utils.Issue{IssueType: "SillyIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
+	d.issues = append(d.issues, utils.Issue{IssueType: "SillyIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
 }
 
-func (s *SillyIndexes) GetIssues() []utils.Issue {
-	return s.issues
+func (d *SillyIndexes) GetIssues() []utils.Issue {
+	return d.issues
+}
+
+func (d *SillyIndexes) GetDurationMS() int64 {
+	return d.durationMS
 }

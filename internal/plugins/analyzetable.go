@@ -15,33 +15,39 @@ type IntegerTimeSeries struct {
 }
 
 type AnalyzeTable struct {
-	issues []utils.Issue
-	series []IntegerTimeSeries
+	datasource *dbutils.DataSource
+	issues     []utils.Issue
+	series     []IntegerTimeSeries
+	durationMS int64
 }
 
-// DuplicateIndexes reports on redundant indexes.
-func (a *AnalyzeTable) Execute(args ...string) {
-	a.issues = make([]utils.Issue, 0)
+func (d *AnalyzeTable) Init(ds *dbutils.DataSource) {
+	d.datasource = ds
+}
+
+func (d *AnalyzeTable) Execute(args ...string) {
+	startMS := time.Now().UnixMilli()
+	d.issues = make([]utils.Issue, 0)
 
 	query := fmt.Sprintf(`select n_live_tup, insert_dt from pgmaven_pg_stat_user_tables where relname = '%s' and last_analyze is not null order by insert_dt`, args[0])
 
-	a.series = make([]IntegerTimeSeries, 0)
+	d.series = make([]IntegerTimeSeries, 0)
 
-	err := dbutils.ExecuteQueryRows(query, nil, analyzeTableProcessor, a)
+	err := d.datasource.ExecuteQueryRows(query, nil, analyzeTableProcessor, d)
 	if err != nil {
 		log.Printf("ERROR: AnalyzeTable: table '%s' failed with error: %v\n", args[0], err)
 	}
 
-	if len(a.series) < 2 {
+	if len(d.series) < 2 {
 		fmt.Printf("ERROR: AnalyzeTable: table '%s', insufficient snapshots to analyze\n", args[0])
 		return
 	}
 
-	start := a.series[0].when
-	end := a.series[len(a.series)-1].when
+	start := d.series[0].when
+	end := d.series[len(d.series)-1].when
 
 	timeDiff := end.Sub(start).Milliseconds() / 1000
-	countDiff := a.series[len(a.series)-1].value - a.series[0].value
+	countDiff := d.series[len(d.series)-1].value - d.series[0].value
 
 	const daySeconds = 24 * 60 * 60
 
@@ -52,7 +58,7 @@ func (a *AnalyzeTable) Execute(args ...string) {
 
 	days := float32(timeDiff) / daySeconds
 	rowsPerDay := float32(countDiff) / days
-	dailyPercent := 100 * rowsPerDay / float32(a.series[0].value)
+	dailyPercent := 100 * rowsPerDay / float32(d.series[0].value)
 
 	// fmt.Printf("Analysis period: %s - %s (%ds): %d rows, rows per day: %f, daily percent: %f\n", start, end, timeDiff, countDiff, rowsPerDay, dailyPercent)
 
@@ -60,11 +66,13 @@ func (a *AnalyzeTable) Execute(args ...string) {
 	// 	fmt.Printf("%s: %d\n", elt.when, elt.value)
 	// }
 
-	detail := fmt.Sprintf("Table: %s, current rows: %d, is growing at %.2f%% per day\n", args[0], a.series[len(a.series)-1].value, dailyPercent)
+	detail := fmt.Sprintf("Table: %s, current rows: %d, is growing at %.2f%% per day\n", args[0], d.series[len(d.series)-1].value, dailyPercent)
 
 	if dailyPercent > 0.5 {
-		a.issues = append(a.issues, utils.Issue{IssueType: "TableGrowth", Detail: detail, Solution: "REVIEW table - consider partitioning and/or pruning\n"})
+		d.issues = append(d.issues, utils.Issue{IssueType: "TableGrowth", Detail: detail, Solution: "REVIEW table - consider partitioning and/or pruning\n"})
 	}
+
+	d.durationMS = time.Now().UnixMilli() - startMS
 }
 
 // AnalyzeTableProcessor is invoked for every row of the Analyze Table Query.
@@ -72,11 +80,15 @@ func (a *AnalyzeTable) Execute(args ...string) {
 func analyzeTableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
 	rows := (*values[0].(*interface{})).(int64)
 	insert_dt := (*values[1].(*interface{})).(time.Time)
-	a := self.(*AnalyzeTable)
+	d := self.(*AnalyzeTable)
 
-	a.series = append(a.series, IntegerTimeSeries{when: insert_dt, value: rows})
+	d.series = append(d.series, IntegerTimeSeries{when: insert_dt, value: rows})
 }
 
-func (a *AnalyzeTable) GetIssues() []utils.Issue {
-	return a.issues
+func (d *AnalyzeTable) GetIssues() []utils.Issue {
+	return d.issues
+}
+
+func (d *AnalyzeTable) GetDurationMS() int64 {
+	return d.durationMS
 }

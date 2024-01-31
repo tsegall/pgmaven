@@ -21,24 +21,18 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"strings"
-	"time"
 
 	"pgmaven/internal/commands"
 	"pgmaven/internal/dbutils"
 	"pgmaven/internal/plugins"
 	"pgmaven/internal/utils"
 
-	"github.com/elliotchance/sshtunnel"
-	"golang.org/x/crypto/ssh"
-
 	// _ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/lib/pq" // Register the driver
 )
 
 const (
-	dbname     = ""
 	host       = "localhost"
 	port       = 5432
 	password   = "<SETME>"
@@ -47,26 +41,12 @@ const (
 	username   = "tsegall"
 )
 
-func PrivateKeyFileWithPassphrase(file string, passphrase []byte) ssh.AuthMethod {
-	buffer, err := os.ReadFile(file)
-	if err != nil {
-		return nil
-	}
-
-	key, err := ssh.ParsePrivateKeyWithPassphrase(buffer, passphrase)
-	if err != nil {
-		return nil
-	}
-
-	return ssh.PublicKeys(key)
-}
-
 func main() {
 	var optionsDB dbutils.DBOptions
 	var options Options
 
 	flag.StringVar(&optionsDB.DBNames, "dbnames", "", "file with a list of dbnames to connect to")
-	flag.StringVar(&optionsDB.DBName, "dbname", dbname, "database name to connect to")
+	flag.StringVar(&optionsDB.DBName, "dbname", "", "database name to connect to")
 	flag.StringVar(&optionsDB.Host, "host", host, "database server host or socket directory (default: 'local socket')")
 	flag.StringVar(&optionsDB.Password, "password", password, "password for DB")
 	flag.IntVar(&optionsDB.Port, "port", port, "database server port (default: '5432')")
@@ -88,40 +68,10 @@ func main() {
 		fmt.Println(utils.GetVersionString())
 		return
 	}
-	var tunnel *sshtunnel.SSHTunnel
 
-	tunnel = nil
+	ds := dbutils.NewDataSource(optionsDB)
 
-	if optionsDB.TunnelHost != "" {
-		var err error
-		// Setup the tunnel, but do not yet start it yet.
-		tunnel, err = sshtunnel.NewSSHTunnel(
-			// User and host of tunnel server, it will default to port 22
-			// if not specified.
-			optionsDB.TunnelUsername+"@"+optionsDB.TunnelHost,
-
-			PrivateKeyFileWithPassphrase(optionsDB.TunnelPrivateKeyFile, []byte("Linux is not all bad")),
-
-			// The destination host and port of the actual server.
-			optionsDB.Host+":"+strconv.Itoa(optionsDB.Port),
-
-			// The local port you want to bind the remote port to.
-			// Specifying "0" will lead to a random port.
-			"0",
-		)
-		if err != nil {
-			log.Fatalf("ERROR: Failed to establish tunnel, error: %v\n", err)
-		}
-
-		if options.Verbose {
-			tunnel.Log = log.New(os.Stdout, "", log.Ldate|log.Lmicroseconds)
-		}
-
-		go tunnel.Start()
-		time.Sleep(500 * time.Millisecond)
-	}
-
-	var dbnames []string
+	var dbNames []string
 	if optionsDB.DBNames != "" {
 		if optionsDB.DBName != "" {
 			log.Fatalf("ERROR: Cannot specify both dbname and dbnames options\n")
@@ -130,28 +80,18 @@ func main() {
 		if err != nil {
 			log.Fatalf("ERROR: Failed to open file, error %v\n", err)
 		}
-		dbnames = strings.Split(string(content), "\n")
+		dbNames = strings.Split(string(content), "\n")
 	} else {
-		dbnames = []string{optionsDB.DBName}
+		dbNames = []string{optionsDB.DBName}
 	}
 
-	for _, dbname := range dbnames {
-
-		if strings.Trim(dbname, " ") == "" {
+	for _, dbName := range dbNames {
+		if strings.Trim(dbName, " ") == "" {
 			continue
 		}
 
-		var psqlInfo string
-
-		if tunnel != nil {
-			psqlInfo = fmt.Sprintf("host=%s port=%d user=%s "+
-				"password=%s dbname=%s sslmode=disable",
-				"localhost", tunnel.Local.Port, optionsDB.Username, optionsDB.Password, dbname)
-		} else {
-			psqlInfo = fmt.Sprintf("host=%s port=%d user=%s "+
-				"password=%s dbname=%s sslmode=disable",
-				optionsDB.Host, optionsDB.Port, optionsDB.Username, optionsDB.Password, dbname)
-		}
+		ds.SetDBName(dbName)
+		psqlInfo := ds.GetDataSourceString()
 
 		if options.Verbose {
 			fmt.Printf("Connection String: %s\n", psqlInfo)
@@ -159,31 +99,33 @@ func main() {
 
 		db, err := sql.Open("postgres", psqlInfo)
 		if err != nil {
-			log.Printf("ERROR: Database: %s, open failed with error: %v\n", dbname, err)
+			log.Printf("ERROR: Database: %s, open failed with error: %v\n", dbName, err)
 			continue
 		}
+		ds.SetDatabase(db)
 
 		err = db.Ping()
 		if err != nil {
-			log.Printf("ERROR: Database: %s, failed to ping database, error: %v\n", dbname, err)
+			log.Printf("ERROR: Database: %s, failed to ping database, error: %v\n", dbName, err)
 			continue
 		}
 
-		dbutils.Init(db, optionsDB, dbname)
-
 		// If we are processing multiple databases then output the name of the DB we are working on
 		if optionsDB.DBNames != "" {
-			fmt.Printf("Database: %s\n", dbname)
+			fmt.Printf("Database: %s\n", dbName)
 		}
 
 		if options.Detect != "" {
 			detectOptions := strings.Split(options.Detect, ":")
-			detector, err := plugins.NewDetector(detectOptions[0])
+			detector, err := plugins.NewDetector(ds, detectOptions[0])
 			if err != nil {
 				log.Println("ERROR: Failed to locate detector\n", err)
 				continue
 			}
 			detector.Execute(detectOptions[1:]...)
+			if options.Verbose {
+				fmt.Printf("Execution Time: %dms\n", detector.GetDurationMS())
+			}
 			for _, issue := range detector.GetIssues() {
 				issue.Dump()
 			}
@@ -192,7 +134,7 @@ func main() {
 
 		if options.Command != "" {
 			commandOptions := strings.Split(options.Command, ":")
-			command, err := commands.NewCommand(commandOptions[0])
+			command, err := commands.NewCommand(ds, commandOptions[0])
 			if err != nil {
 				log.Println("ERROR: Failed to locate command\n", err)
 				continue

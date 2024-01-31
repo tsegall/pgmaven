@@ -5,18 +5,26 @@ import (
 	"fmt"
 	"pgmaven/internal/dbutils"
 	"pgmaven/internal/utils"
+	"time"
 )
 
 type Queries struct {
-	issues []utils.Issue
+	datasource *dbutils.DataSource
+	issues     []utils.Issue
+	durationMS int64
+}
+
+func (d *Queries) Init(ds *dbutils.DataSource) {
+	d.datasource = ds
 }
 
 // Queries - report queries with significant impact on the system.
-func (q *Queries) Execute(args ...string) {
-	q.issues = make([]utils.Issue, 0)
+func (d *Queries) Execute(args ...string) {
+	startMS := time.Now().UnixMilli()
+	d.issues = make([]utils.Issue, 0)
 
-	_, min := dbutils.ExecuteQueryRow(`select min(insert_dt)::text from pgmaven_pg_stat_statements`)
-	_, max := dbutils.ExecuteQueryRow(`select max(insert_dt)::text from pgmaven_pg_stat_statements`)
+	_, min := d.datasource.ExecuteQueryRow(`select min(insert_dt)::text from pgmaven_pg_stat_statements`)
+	_, max := d.datasource.ExecuteQueryRow(`select max(insert_dt)::text from pgmaven_pg_stat_statements`)
 
 	query := `SELECT usename, calls, mean_exec_time, total_exec_time, queryid, query
 	FROM pgmaven_pg_stat_statements pgss, pg_user pgu
@@ -24,8 +32,10 @@ func (q *Queries) Execute(args ...string) {
 	AND pgss.insert_dt = $1
 	AND pgu.usename NOT IN ('rdsrepladmin', 'rdsadmin', 'rdstopmgr');`
 
-	_ = dbutils.ExecuteQueryRows(query, []any{min}, queryProcessor, q)
-	_ = dbutils.ExecuteQueryRows(query, []any{max}, queryProcessor, q)
+	_ = d.datasource.ExecuteQueryRows(query, []any{min}, queryProcessor, d)
+	_ = d.datasource.ExecuteQueryRows(query, []any{max}, queryProcessor, d)
+
+	d.durationMS = time.Now().UnixMilli() - startMS
 }
 
 // AnalyzeTableProcessor is invoked for every row of the Analyze Table Query.
@@ -40,6 +50,10 @@ func queryProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 	fmt.Printf("%s, %d, %.2f, %.2f, %d, %s\n", userName, calls, mean_exec_time, total_exec_time, queryId, query)
 }
 
-func (q *Queries) GetIssues() []utils.Issue {
+func (d *Queries) GetIssues() []utils.Issue {
 	return nil
+}
+
+func (d *Queries) GetDurationMS() int64 {
+	return d.durationMS
 }
