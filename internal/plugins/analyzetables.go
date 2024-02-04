@@ -86,7 +86,7 @@ SELECT count(*)
 	WHERE  inhparent = $1::regclass`
 		partitionCount, _ := d.datasource.ExecuteQueryRow(isPartitionedQuery, []any{tableName})
 		if partitionCount.(int64) == 0 {
-			detail := fmt.Sprintf("Table: %s, current rows: %d, insert only: %t, is large and not partitioned\n%s", tableName, maxRows, changes == 0, d.getUnusedIndexes(tableName))
+			detail := fmt.Sprintf("Table: %s, current rows: %.2fM, insert only: %t, is large and not partitioned\n%s", tableName, float32(maxRows)/10000000.0, changes == 0, d.getUnusedIndexes(tableName))
 			d.issues = append(d.issues, utils.Issue{IssueType: "LargeTable", Target: tableName, Detail: detail, Solution: "REVIEW table - consider partitioning and/or pruning\n"})
 		}
 	}
