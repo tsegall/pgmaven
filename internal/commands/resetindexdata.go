@@ -4,19 +4,20 @@ import (
 	"fmt"
 	"log"
 	"pgmaven/internal/dbutils"
+	"pgmaven/internal/utils"
 )
 
 type ResetIndexData struct {
 	datasource *dbutils.DataSource
 }
 
-func (r *ResetIndexData) Init(ds *dbutils.DataSource) {
+func (r *ResetIndexData) Init(context utils.Context, ds *dbutils.DataSource) {
 	r.datasource = ds
 }
 
 func (r *ResetIndexData) Execute(args ...string) {
 	// Reset all Index data
-	err, _ := r.datasource.ExecuteQueryRow(`select pg_stat_reset();`)
+	err, _ := r.datasource.ExecuteQueryRow(`select pg_stat_reset();`, nil)
 	if err != nil {
 		log.Printf("ERROR: ResetIndexData failed with error: %v\n", err)
 	}

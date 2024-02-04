@@ -6,6 +6,7 @@ import (
 
 type Issue struct {
 	IssueType string
+	Target    string
 	Detail    string
 	Solution  string
 }

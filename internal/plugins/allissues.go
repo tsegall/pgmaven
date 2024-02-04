@@ -7,12 +7,14 @@ import (
 
 type AllIssues struct {
 	datasource *dbutils.DataSource
+	context    utils.Context
 	issues     []utils.Issue
 	durationMS int64
 }
 
-func (d *AllIssues) Init(ds *dbutils.DataSource) {
+func (d *AllIssues) Init(context utils.Context, ds *dbutils.DataSource) {
 	d.datasource = ds
+	d.context = context
 }
 
 // Run a set of detection routines.
@@ -20,9 +22,9 @@ func (d *AllIssues) Execute(args ...string) {
 
 	routines := []string{"AnalyzeTables", "DuplicateIndexes", "SillyIndexes", "UnusedIndexes"}
 
-	// using for loop
 	for _, element := range routines {
-		sub, _ := NewDetector(d.datasource, element)
+		sub, _ := NewDetector(element)
+		sub.Init(d.context, d.datasource)
 		sub.Execute()
 		d.issues = append(d.issues, sub.GetIssues()...)
 	}

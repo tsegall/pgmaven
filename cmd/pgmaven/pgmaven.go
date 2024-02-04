@@ -33,32 +33,35 @@ import (
 )
 
 const (
-	host       = "localhost"
-	port       = 5432
-	password   = "<SETME>"
-	schema     = "public"
-	tunnelPort = 22
-	username   = "tsegall"
+	password     = "<SETME>"
+	username     = "tsegall"
+	DurationWeek = 7 * 24 * 60 * 60 * 1000 * 1000 * 1000
 )
 
 func main() {
-	var optionsDB dbutils.DBOptions
-	var options Options
+	var (
+		optionsDB dbutils.DBOptions
+		options   Options
+		context   utils.Context
+	)
 
 	flag.StringVar(&optionsDB.DBNames, "dbnames", "", "file with a list of dbnames to connect to")
 	flag.StringVar(&optionsDB.DBName, "dbname", "", "database name to connect to")
-	flag.StringVar(&optionsDB.Host, "host", host, "database server host or socket directory (default: 'local socket')")
+	flag.StringVar(&optionsDB.Host, "host", dbutils.DefaultHost, "database server host or socket directory (default: 'local socket')")
 	flag.StringVar(&optionsDB.Password, "password", password, "password for DB")
-	flag.IntVar(&optionsDB.Port, "port", port, "database server port (default: '5432')")
-	flag.StringVar(&optionsDB.Schema, "schema", schema, "database schema (default: 'public')")
+	flag.IntVar(&optionsDB.Port, "port", dbutils.DefaultPort, "database server port (default: '5432')")
+	flag.StringVar(&optionsDB.Schema, "schema", dbutils.DefaultSchema, "database schema (default: 'public')")
 	flag.StringVar(&optionsDB.TunnelHost, "tunnelHost", "", "hostname of tunnel server")
-	flag.IntVar(&optionsDB.TunnelPort, "tunnelPort", tunnelPort, "port for tunnel server default: '22')")
+	flag.IntVar(&optionsDB.TunnelPort, "tunnelPort", dbutils.DefaultTunnelPort, "port for tunnel server default: '22')")
 	flag.StringVar(&optionsDB.TunnelPrivateKeyFile, "tunnelPrivateKeyFile", "", "path to private key file")
 	flag.StringVar(&optionsDB.TunnelUsername, "tunnelUsername", "", "username for tunnel server")
 	flag.StringVar(&optionsDB.Username, "username", username, "database user name")
-	flag.BoolVar(&options.Verbose, "verbose", false, "enable verbose logging")
-	flag.BoolVar(&options.Version, "version", false, "print version number")
 
+	flag.DurationVar(&context.Duration, "duration", DurationWeek, "Duration of analysis - default week")
+	flag.DurationVar(&context.DurationOffset, "durationOffset", 0, "Duration offset (from now) - 0")
+	flag.BoolVar(&context.Verbose, "verbose", false, "enable verbose logging")
+
+	flag.BoolVar(&options.Version, "version", false, "print version number")
 	flag.StringVar(&options.Command, "command", "", "execute the command specified (--command Help for options)")
 	flag.StringVar(&options.Detect, "detect", "", "execute the issue detection specified (--detect Help for options)")
 
@@ -117,11 +120,12 @@ func main() {
 
 		if options.Detect != "" {
 			detectOptions := strings.Split(options.Detect, ":")
-			detector, err := plugins.NewDetector(ds, detectOptions[0])
+			detector, err := plugins.NewDetector(detectOptions[0])
 			if err != nil {
 				log.Println("ERROR: Failed to locate detector\n", err)
 				continue
 			}
+			detector.Init(context, ds)
 			detector.Execute(detectOptions[1:]...)
 			if options.Verbose {
 				fmt.Printf("Execution Time: %dms\n", detector.GetDurationMS())
@@ -134,11 +138,12 @@ func main() {
 
 		if options.Command != "" {
 			commandOptions := strings.Split(options.Command, ":")
-			command, err := commands.NewCommand(ds, commandOptions[0])
+			command, err := commands.NewCommand(commandOptions[0])
 			if err != nil {
 				log.Println("ERROR: Failed to locate command\n", err)
 				continue
 			}
+			command.Init(context, ds)
 			command.Execute(commandOptions[1:]...)
 			continue
 		}

@@ -2,13 +2,14 @@ package commands
 
 import (
 	"pgmaven/internal/dbutils"
+	"pgmaven/internal/utils"
 )
 
 type Summary struct {
 	datasource *dbutils.DataSource
 }
 
-func (s *Summary) Init(ds *dbutils.DataSource) {
+func (s *Summary) Init(context utils.Context, ds *dbutils.DataSource) {
 	s.datasource = ds
 }
 

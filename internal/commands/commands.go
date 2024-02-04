@@ -3,10 +3,11 @@ package commands
 import (
 	"fmt"
 	"pgmaven/internal/dbutils"
+	"pgmaven/internal/utils"
 )
 
 type Command interface {
-	Init(ds *dbutils.DataSource)
+	Init(context utils.Context, ds *dbutils.DataSource)
 	Execute(args ...string)
 }
 
@@ -27,13 +28,12 @@ var commandRegistry map[string]CommandDetails = map[string]CommandDetails{
 
 var StatsTables = [...]string{"pg_stat_user_indexes", "pg_statio_user_indexes", "pg_stat_user_tables", "pg_statio_user_tables", "pg_stat_statements"}
 
-func NewCommand(ds *dbutils.DataSource, name string) (cmd Command, err error) {
+func NewCommand(name string) (cmd Command, err error) {
 
 	details, ok := commandRegistry[name]
 	if !ok {
 		return cmd, fmt.Errorf("Command '%v' not found (use Help to list options)", name)
 	}
 	cmd = details.Builder()
-	cmd.Init(ds)
 	return
 }

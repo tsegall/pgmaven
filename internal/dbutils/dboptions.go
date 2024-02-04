@@ -13,3 +13,12 @@ type DBOptions struct {
 	TunnelUsername       string
 	Username             string
 }
+
+const (
+	DefaultHost       = "localhost"
+	DefaultPort       = 5432
+	password          = "<SETME>"
+	DefaultSchema     = "public"
+	DefaultTunnelPort = 22
+	username          = "tsegall"
+)

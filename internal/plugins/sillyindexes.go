@@ -17,9 +17,9 @@ type SillyIndexes struct {
 	durationMS int64
 }
 
-const smallTable int64 = 1000
+const smallTable int64 = 100
 
-func (d *SillyIndexes) Init(ds *dbutils.DataSource) {
+func (d *SillyIndexes) Init(context utils.Context, ds *dbutils.DataSource) {
 	d.datasource = ds
 }
 
@@ -72,7 +72,7 @@ func tableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 	tableName := string((*values[0].(*interface{})).([]uint8))
 
 	query := fmt.Sprintf(`select count(*) from %s`, tableName)
-	rows, err := d.datasource.ExecuteQueryRow(query)
+	rows, err := d.datasource.ExecuteQueryRow(query, nil)
 	if err != nil {
 		log.Printf("ERROR: Query '%s' failed with error: %v\n", query, err)
 	}
@@ -106,7 +106,7 @@ func tableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 		}
 
 	} else {
-		d.issues = append(d.issues, utils.Issue{IssueType: "AnalyzeSuggested", Detail: "n_live_tup < row count\n", Solution: fmt.Sprintf("ANALYZE \"%s\"\n", tableName)})
+		d.issues = append(d.issues, utils.Issue{IssueType: "AnalyzeSuggested", Target: tableName, Detail: "n_live_tup < row count\n", Solution: fmt.Sprintf("ANALYZE \"%s\"\n", tableName)})
 	}
 }
 
@@ -120,7 +120,7 @@ func sillyIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []
 	index1Definition := d.datasource.IndexDefinition(quote(indexName))
 	indexDetail := fmt.Sprintf("Index definition: '%s'\n", index1Definition)
 
-	d.issues = append(d.issues, utils.Issue{IssueType: "SillyIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
+	d.issues = append(d.issues, utils.Issue{IssueType: "SillyIndex", Target: indexName, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
 }
 
 func (d *SillyIndexes) GetIssues() []utils.Issue {

@@ -136,8 +136,8 @@ func (ds *DataSource) ExecuteQueryRows(query string, queryArgs []any, processor 
 	return nil
 }
 
-func (ds *DataSource) ExecuteQueryRow(query string) (any, error) {
-	row := ds.database.QueryRow(query)
+func (ds *DataSource) ExecuteQueryRow(query string, queryArgs []any) (any, error) {
+	row := ds.database.QueryRow(query, queryArgs...)
 
 	var result any
 	err := row.Scan(&result)
@@ -187,7 +187,7 @@ func (ds *DataSource) TableList(minRows int) ([]string, error) {
 // IndexDefinition returns the DDL for the named index.
 func (ds *DataSource) IndexDefinition(indexName string) string {
 	query := fmt.Sprintf(`SELECT pg_get_indexdef('%s'::regclass);`, indexName)
-	ret, err := ds.ExecuteQueryRow(query)
+	ret, err := ds.ExecuteQueryRow(query, nil)
 	if err != nil {
 		log.Printf("ERROR: IndexDefinition failed with error: %v\n", err)
 		return ""

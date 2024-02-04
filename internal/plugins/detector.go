@@ -7,7 +7,7 @@ import (
 )
 
 type Detector interface {
-	Init(ds *dbutils.DataSource)
+	Init(context utils.Context, ds *dbutils.DataSource)
 	Execute(args ...string)
 	GetIssues() []utils.Issue
 	GetDurationMS() int64
@@ -20,7 +20,6 @@ type DetectorBuilder func() Detector
 
 var detectorRegistry map[string]DetectorDetails = map[string]DetectorDetails{
 	"All":              {"Execute all ", func() Detector { return &AllIssues{} }},
-	"AnalyzeTable":     {"Analyze specific table", func() Detector { return &AnalyzeTable{} }},
 	"AnalyzeTables":    {"Analyze all tables", func() Detector { return &AnalyzeTables{} }},
 	"DuplicateIndexes": {"Check for duplicate indexes", func() Detector { return &DuplicateIndexes{} }},
 	"Help":             {"Output usage", func() Detector { return &Help{} }},
@@ -29,13 +28,12 @@ var detectorRegistry map[string]DetectorDetails = map[string]DetectorDetails{
 	"UnusedIndexes":    {"Check for unused indexes", func() Detector { return &UnusedIndexes{} }},
 }
 
-func NewDetector(ds *dbutils.DataSource, name string) (d Detector, err error) {
+func NewDetector(name string) (d Detector, err error) {
 
 	details, ok := detectorRegistry[name]
 	if !ok {
 		return d, fmt.Errorf("Detector '%v' not found (use Help to list options)", name)
 	}
 	d = details.Builder()
-	d.Init(ds)
 	return
 }

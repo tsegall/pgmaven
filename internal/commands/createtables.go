@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"log"
 	"pgmaven/internal/dbutils"
+	"pgmaven/internal/utils"
 )
 
 type CreateTables struct {
 	datasource *dbutils.DataSource
 }
 
-func (c *CreateTables) Init(ds *dbutils.DataSource) {
+func (c *CreateTables) Init(context utils.Context, ds *dbutils.DataSource) {
 	c.datasource = ds
 }
 

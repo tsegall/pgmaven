@@ -17,7 +17,7 @@ type DuplicateIndexes struct {
 	durationMS int64
 }
 
-func (d *DuplicateIndexes) Init(ds *dbutils.DataSource) {
+func (d *DuplicateIndexes) Init(context utils.Context, ds *dbutils.DataSource) {
 	d.datasource = ds
 }
 
@@ -61,11 +61,11 @@ func duplicateIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, value
 
 	// If Index 2 is unique then kill Index 1
 	if strings.Contains(index2Definition, " UNIQUE ") {
-		d.issues = append(d.issues, utils.Issue{IssueType: "DuplicateIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX %s\n", index1)})
+		d.issues = append(d.issues, utils.Issue{IssueType: "DuplicateIndex", Target: index1, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX %s\n", index1)})
 		return
 	}
 
-	d.issues = append(d.issues, utils.Issue{IssueType: "DuplicateIndex", Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX %s\n", index2)})
+	d.issues = append(d.issues, utils.Issue{IssueType: "DuplicateIndex", Target: index2, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX %s\n", index2)})
 }
 
 func (d *DuplicateIndexes) GetIssues() []utils.Issue {

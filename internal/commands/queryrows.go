@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"pgmaven/internal/dbutils"
+	"pgmaven/internal/utils"
 	"time"
 )
 
@@ -12,7 +13,7 @@ type QueryRows struct {
 	datasource *dbutils.DataSource
 }
 
-func (q *QueryRows) Init(ds *dbutils.DataSource) {
+func (q *QueryRows) Init(context utils.Context, ds *dbutils.DataSource) {
 	q.datasource = ds
 }
 

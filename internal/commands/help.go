@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"pgmaven/internal/dbutils"
+	"pgmaven/internal/utils"
 	"sort"
 
 	"golang.org/x/exp/maps"
@@ -11,7 +12,7 @@ import (
 type Help struct {
 }
 
-func (h *Help) Init(ds *dbutils.DataSource) {
+func (h *Help) Init(context utils.Context, ds *dbutils.DataSource) {
 }
 
 func (h *Help) Execute(args ...string) {

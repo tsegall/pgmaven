@@ -1,6 +1,9 @@
 package main
 
+import "time"
+
 type Options struct {
-	Verbose bool
-	Version bool
+	Frequency time.Duration
+	Verbose   bool
+	Version   bool
 }

@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"log"
 	"pgmaven/internal/dbutils"
+	"pgmaven/internal/utils"
 )
 
 type SnapshotTable struct {
 	datasource *dbutils.DataSource
 }
 
-func (s *SnapshotTable) Init(ds *dbutils.DataSource) {
+func (s *SnapshotTable) Init(context utils.Context, ds *dbutils.DataSource) {
 	s.datasource = ds
 }
 

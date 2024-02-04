@@ -13,7 +13,7 @@ type Help struct {
 	durationMS int64
 }
 
-func (d *Help) Init(ds *dbutils.DataSource) {
+func (d *Help) Init(context utils.Context, ds *dbutils.DataSource) {
 }
 
 func (d *Help) Execute(args ...string) {
