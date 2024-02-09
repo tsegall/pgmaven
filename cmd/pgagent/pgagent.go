@@ -28,8 +28,6 @@ import (
 	"pgmaven/internal/dbutils"
 	"pgmaven/internal/utils"
 
-	"golang.org/x/crypto/ssh"
-
 	// _ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/lib/pq" // Register the driver
 )
@@ -42,20 +40,6 @@ const (
 	FrequencyMin = 15 * DurationMin
 	FrequencyMax = 24 * DurationHour
 )
-
-func PrivateKeyFileWithPassphrase(file string, passphrase []byte) ssh.AuthMethod {
-	buffer, err := os.ReadFile(file)
-	if err != nil {
-		return nil
-	}
-
-	key, err := ssh.ParsePrivateKeyWithPassphrase(buffer, passphrase)
-	if err != nil {
-		return nil
-	}
-
-	return ssh.PublicKeys(key)
-}
 
 func main() {
 	var (

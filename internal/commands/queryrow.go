@@ -17,7 +17,7 @@ func (q *QueryRow) Init(context utils.Context, ds *dbutils.DataSource) {
 
 func (q *QueryRow) Execute(args ...string) {
 	s := make([]interface{}, len(args)-1)
-	for i, _ := range s {
+	for i := range s {
 		s[i] = args[i+1]
 	}
 	result, err := q.datasource.ExecuteQueryRow(args[0], s)

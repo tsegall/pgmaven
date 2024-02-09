@@ -19,13 +19,13 @@ type DataSource struct {
 	database *sql.DB
 }
 
-func PrivateKeyFileWithPassphrase(file string, passphrase []byte) ssh.AuthMethod {
+func PrivateKeyFileWithPassphrase(file string, passphrase string) ssh.AuthMethod {
 	buffer, err := os.ReadFile(file)
 	if err != nil {
 		return nil
 	}
 
-	key, err := ssh.ParsePrivateKeyWithPassphrase(buffer, passphrase)
+	key, err := ssh.ParsePrivateKeyWithPassphrase(buffer, []byte(passphrase))
 	if err != nil {
 		return nil
 	}
@@ -44,7 +44,7 @@ func NewDataSource(o DBOptions) *DataSource {
 			// if not specified.
 			o.TunnelUsername+"@"+o.TunnelHost,
 
-			PrivateKeyFileWithPassphrase(o.TunnelPrivateKeyFile, []byte("Linux is not all bad")),
+			PrivateKeyFileWithPassphrase(o.TunnelPrivateKeyFile, "Linux is not all bad"),
 
 			// The destination host and port of the actual server.
 			o.Host+":"+strconv.Itoa(o.Port),

@@ -77,7 +77,6 @@ func (d *Queries) Execute(args ...string) {
 
 	if d.context.Verbose {
 		fmt.Printf("Analyzing load for duration: %v (%v - %v) - Total Exec Time: %f\n", d.context.Duration, start, end, totalExecTimeMS)
-		fmt.Printf("Actual duration: %v - %v\n", startClosest.Format(time.RFC3339Nano), endClosest)
 	}
 
 	// Find all queries responsible for at least 1% of the CPU
@@ -107,8 +106,14 @@ SELECT usename, calls, mean_exec_time, total_exec_time, queryid, query
 	_ = d.datasource.ExecuteQueryRows(endQuery, []any{endClosest, timeCutoffMS}, queryProcessor, d.endQuery)
 	_ = d.datasource.ExecuteQueryRows(startQuery, []any{startClosest, endClosest, timeCutoffMS}, queryProcessor, d.startQuery)
 
-	fmt.Printf("Start length: %d\n", len(d.startQuery))
-	fmt.Printf("End length: %d\n", len(d.endQuery))
+	if len(d.startQuery) != len(d.endQuery) {
+		fmt.Printf("WARNING: not all queries matched in period requested, data suspect, end: %d, start: %d\n", len(d.endQuery), len(d.startQuery))
+		for _, queryId := range difference(maps.Keys(d.endQuery), maps.Keys(d.startQuery)) {
+			fmt.Printf("\tQueryId: %d\n", queryId)
+		}
+	}
+
+	fmt.Printf("Analysis period: %v - %v (%v)\n", startClosest, endClosest, endClosest.Sub(startClosest))
 
 	total_exec_time := 0.0
 	for k, v := range d.endQuery {
@@ -130,6 +135,21 @@ SELECT usename, calls, mean_exec_time, total_exec_time, queryid, query
 		fmt.Printf("%s, %d, %.2f, %.2f, %.2f, %d, %s\n", v.userName, v.calls, v.mean_exec_time, v.total_exec_time, (v.total_exec_time*100)/totalExecTimeMS, v.queryId, v.queryText)
 	}
 	d.durationMS = time.Now().UnixMilli() - startMS
+}
+
+// difference returns the elements in `a` that aren't in `b`.
+func difference(a, b []int64) []int64 {
+	mb := make(map[int64]struct{}, len(b))
+	for _, x := range b {
+		mb[x] = struct{}{}
+	}
+	var diff []int64
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			diff = append(diff, x)
+		}
+	}
+	return diff
 }
 
 // AnalyzeTableProcessor is invoked for every row of the Analyze Table Query.

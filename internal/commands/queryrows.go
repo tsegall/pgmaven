@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"pgmaven/internal/dbutils"
 	"pgmaven/internal/utils"
 	"time"
@@ -17,8 +18,25 @@ func (q *QueryRows) Init(context utils.Context, ds *dbutils.DataSource) {
 	q.datasource = ds
 }
 
+func loadQueryFromFile(filename string) string {
+	buffer, err := os.ReadFile(filename)
+	if err != nil {
+		log.Fatalf("ERROR: Failed to read file '%s', error: %v\n", filename, err)
+	}
+
+	return string(buffer)
+}
+
 func (q *QueryRows) Execute(args ...string) {
-	err := q.datasource.ExecuteQueryRows(args[0], nil, dump, q)
+	var query string
+
+	// If the first character is a '!' then assume what follows is a file containing the query
+	if args[0][0] == '!' {
+		query = loadQueryFromFile(args[0][1:])
+	} else {
+		query = args[0]
+	}
+	err := q.datasource.ExecuteQueryRows(query, nil, dump, q)
 	if err != nil {
 		log.Printf("ERROR: Database: %s, Query '%s' failed with error: %v\n", q.datasource.GetDBName(), args[0], err)
 	}
