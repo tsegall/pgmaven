@@ -39,7 +39,8 @@ WITH stat as (
 		stat.schemaname,
 		stat.relname AS tablename,
 		stat.indexrelname AS indexname,
-		pg_relation_size(stat.indexrelid) AS index_size
+		pg_relation_size(stat.indexrelid) AS index_size,
+		pg_table_size(stat.indexrelid) as table_size
 		FROM stat
 		JOIN pg_catalog.pg_index i using (indexrelid)
 		JOIN pg_catalog.pg_indexes i2 ON stat.schemaname = i2.schemaname AND stat.relname = i2.tablename AND stat.indexrelname = i2.indexname
@@ -53,7 +54,8 @@ WITH stat as (
 			WHERE c.conindid = stat.indexrelid)
 		AND NOT EXISTS                         -- is not an index partition
 		(SELECT 1 FROM pg_catalog.pg_inherits AS inh
-			WHERE inh.inhrelid = stat.indexrelid);
+			WHERE inh.inhrelid = stat.indexrelid)
+		ORDER by tablename asc, indexname asc;
 `, tableClause)
 	err := d.datasource.ExecuteQueryRows(unusedIndexQuery, nil, unusedIndexProcessor, d)
 	if err != nil {
@@ -74,8 +76,9 @@ func unusedIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values [
 	tableName := string((*values[1].(*interface{})).([]uint8))
 	indexName := string((*values[2].(*interface{})).([]uint8))
 	indexSize := (*values[3].(*interface{})).(int64)
+	tableSize := (*values[4].(*interface{})).(int64)
 
-	tableDetail := fmt.Sprintf("Table: %s, Index Size: %d, Unused indexes (%s)\n", tableName, indexSize, indexName)
+	tableDetail := fmt.Sprintf("Table: %s, Index Size: %d, Table Size: %d, Unused indexes (%s)\n", tableName, indexSize, tableSize, indexName)
 	index1Definition := d.datasource.IndexDefinition(quote(indexName))
 	indexDetail := fmt.Sprintf("Index definition: '%s'\n", index1Definition)
 

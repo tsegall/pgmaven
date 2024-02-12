@@ -44,7 +44,7 @@ func (d *Queries) getClosest(t time.Time) any {
 	closest as (
 	select
 		insert_dt,
-		abs(extract(epoch from insert_dt - $1)) as diff
+		abs(extract(epoch from insert_dt - $1 AT TIME ZONE 'UTC')) as diff
 	from
 		date_options
 	order by
@@ -86,6 +86,7 @@ func (d *Queries) Execute(args ...string) {
 SELECT usename, calls, mean_exec_time, total_exec_time, queryid, query
 	FROM pgmaven_pg_stat_statements pgss, pg_user pgu
 	WHERE pgss.userid = pgu.usesysid
+	AND total_exec_time != 0       -- Ditch Explains and Prepares
 	AND pgss.insert_dt = $1
 	AND total_exec_time > $2
 	AND pgu.usename NOT IN ('rdsrepladmin', 'rdsadmin', 'rdstopmgr');`
@@ -94,11 +95,13 @@ SELECT usename, calls, mean_exec_time, total_exec_time, queryid, query
 SELECT usename, calls, mean_exec_time, total_exec_time, queryid, query
 	FROM pgmaven_pg_stat_statements pgss, pg_user pgu
 	WHERE pgss.userid = pgu.usesysid
+	AND total_exec_time != 0
     AND insert_dt = $1
 	AND queryid in (
 		SELECT queryid
 		FROM pgmaven_pg_stat_statements pgss, pg_user pgu
 		WHERE pgss.userid = pgu.usesysid
+		AND total_exec_time != 0
 		AND pgss.insert_dt = $2
 		AND total_exec_time > $3
 		AND pgu.usename NOT IN ('rdsrepladmin', 'rdsadmin', 'rdstopmgr'));`
@@ -121,6 +124,7 @@ SELECT usename, calls, mean_exec_time, total_exec_time, queryid, query
 		if ok {
 			v.calls -= startElement.calls
 			v.total_exec_time -= startElement.total_exec_time
+			d.endQuery[k] = v
 		}
 		total_exec_time += v.total_exec_time
 	}
@@ -132,7 +136,8 @@ SELECT usename, calls, mean_exec_time, total_exec_time, queryid, query
 
 	for _, k := range keys {
 		v := d.endQuery[k]
-		fmt.Printf("%s, %d, %.2f, %.2f, %.2f, %d, %s\n", v.userName, v.calls, v.mean_exec_time, v.total_exec_time, (v.total_exec_time*100)/totalExecTimeMS, v.queryId, v.queryText)
+		dur := time.Duration(v.total_exec_time * float64(time.Millisecond))
+		fmt.Printf("%s, %d, %.2f, %v, %.2f, %d, %s\n", v.userName, v.calls, v.mean_exec_time, dur, (v.total_exec_time*100)/total_exec_time, v.queryId, v.queryText)
 	}
 	d.durationMS = time.Now().UnixMilli() - startMS
 }
@@ -152,8 +157,6 @@ func difference(a, b []int64) []int64 {
 	return diff
 }
 
-// AnalyzeTableProcessor is invoked for every row of the Analyze Table Query.
-// The Query returns a row with the following format (n_live_tup, insert_dt)
 func queryProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
 	m := self.(map[int64]query)
 	userName := string((*values[0].(*interface{})).([]uint8))

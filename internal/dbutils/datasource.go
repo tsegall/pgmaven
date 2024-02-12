@@ -37,6 +37,10 @@ func NewDataSource(o DBOptions) *DataSource {
 	ret := &DataSource{}
 	ret.options = o
 	if o.TunnelHost != "" {
+		if o.TunnelPassphrase == "" {
+			log.Fatalf("ERROR: Required passphrase for Key file missing\n")
+		}
+
 		var err error
 		// Setup the tunnel, but do not yet start it yet.
 		ret.tunnel, err = sshtunnel.NewSSHTunnel(
@@ -44,7 +48,7 @@ func NewDataSource(o DBOptions) *DataSource {
 			// if not specified.
 			o.TunnelUsername+"@"+o.TunnelHost,
 
-			PrivateKeyFileWithPassphrase(o.TunnelPrivateKeyFile, "Linux is not all bad"),
+			PrivateKeyFileWithPassphrase(o.TunnelPrivateKeyFile, o.TunnelPassphrase),
 
 			// The destination host and port of the actual server.
 			o.Host+":"+strconv.Itoa(o.Port),
@@ -109,6 +113,10 @@ func (ds *DataSource) ExecuteQueryRows(query string, queryArgs []any, processor 
 	defer rows.Close()
 
 	columnsTypes, err := rows.ColumnTypes()
+	if err != nil {
+		fmt.Printf("ERROR: Failed to get Column Types, error: %v\n", err)
+		return err
+	}
 
 	if columnsTypes == nil {
 		return nil

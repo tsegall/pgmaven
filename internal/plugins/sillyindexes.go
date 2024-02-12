@@ -98,7 +98,8 @@ func tableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 			 WHERE c.conindid = stat.indexrelid)
 		  AND NOT EXISTS                         -- is not an index partition
 			(SELECT 1 FROM pg_catalog.pg_inherits AS inh
-			 WHERE inh.inhrelid = stat.indexrelid);
+			 WHERE inh.inhrelid = stat.indexrelid)
+		  ORDER by tablename asc, indexname asc;
 		`
 		err := d.datasource.ExecuteQueryRows(sillyIndexQuery, []any{d.datasource.GetSchema(), tableName}, sillyIndexProcessor, d)
 		if err != nil {

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type AnalyzeTables struct {
+type TableIssues struct {
 	datasource *dbutils.DataSource
 	context    utils.Context
 	issues     []utils.Issue
@@ -21,12 +21,12 @@ const (
 	minTableReport       = 100000
 )
 
-func (d *AnalyzeTables) Init(context utils.Context, ds *dbutils.DataSource) {
+func (d *TableIssues) Init(context utils.Context, ds *dbutils.DataSource) {
 	d.datasource = ds
 	d.context = context
 }
 
-func (d *AnalyzeTables) Execute(args ...string) {
+func (d *TableIssues) Execute(args ...string) {
 	startMS := time.Now().UnixMilli()
 	d.issues = make([]utils.Issue, 0)
 
@@ -42,18 +42,18 @@ select relname, min(n_live_tup), max(n_live_tup), min(insert_dt), max(insert_dt)
 	%s
 	group by relname`, tableClause)
 
-	err := d.datasource.ExecuteQueryRows(query, nil, analyzeTablesProcessor, d)
+	err := d.datasource.ExecuteQueryRows(query, nil, tableIssuesProcessor, d)
 
 	if err != nil {
-		fmt.Printf("ERROR: AnalyzeTables: failed to list tables")
+		fmt.Printf("ERROR: TableIssues: failed to list tables")
 		return
 	}
 
 	d.durationMS = time.Now().UnixMilli() - startMS
 }
 
-func analyzeTablesProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
-	d := self.(*AnalyzeTables)
+func tableIssuesProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
+	d := self.(*TableIssues)
 	tableName := string((*values[0].(*interface{})).([]uint8))
 	minRows := (*values[1].(*interface{})).(int64)
 	maxRows := (*values[2].(*interface{})).(int64)
@@ -66,7 +66,7 @@ func analyzeTablesProcessor(rowNumber int, columnTypes []*sql.ColumnType, values
 	const daySeconds = 24 * 60 * 60
 
 	if timeDiff < daySeconds/2 {
-		fmt.Printf("WARNING: AnalyzeTables: Table: %s, insufficient data captured by snapshots (%d seconds)\n", tableName, timeDiff)
+		fmt.Printf("WARNING: TableIssues: Table: %s, insufficient data captured by snapshots (%d seconds)\n", tableName, timeDiff)
 		return
 	}
 
@@ -92,7 +92,7 @@ SELECT count(*)
 	}
 }
 
-func (d *AnalyzeTables) getUnusedIndexes(tableName string) string {
+func (d *TableIssues) getUnusedIndexes(tableName string) string {
 	sub := UnusedIndexes{}
 	sub.Init(d.context, d.datasource)
 	sub.Execute(tableName)
@@ -114,10 +114,10 @@ func (d *AnalyzeTables) getUnusedIndexes(tableName string) string {
 	return unusedIndexes
 }
 
-func (d *AnalyzeTables) GetIssues() []utils.Issue {
+func (d *TableIssues) GetIssues() []utils.Issue {
 	return d.issues
 }
 
-func (d *AnalyzeTables) GetDurationMS() int64 {
+func (d *TableIssues) GetDurationMS() int64 {
 	return d.durationMS
 }

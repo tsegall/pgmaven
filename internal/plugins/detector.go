@@ -20,7 +20,7 @@ type DetectorBuilder func() Detector
 
 var detectorRegistry map[string]DetectorDetails = map[string]DetectorDetails{
 	"All":              {"Execute all ", func() Detector { return &AllIssues{} }},
-	"TableIssues":      {"Analyze tables for issues", func() Detector { return &AnalyzeTables{} }},
+	"TableIssues":      {"Analyze tables for issues", func() Detector { return &TableIssues{} }},
 	"DuplicateIndexes": {"Check for duplicate indexes", func() Detector { return &DuplicateIndexes{} }},
 	"Help":             {"Output usage", func() Detector { return &Help{} }},
 	"Queries":          {"Report queries with significant impact on the system", func() Detector { return &Queries{} }},

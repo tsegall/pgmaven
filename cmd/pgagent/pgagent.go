@@ -17,12 +17,13 @@ package main
 
 import (
 	"database/sql"
-	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
+
+	flag "github.com/spf13/pflag"
 
 	"pgmaven/internal/commands"
 	"pgmaven/internal/dbutils"
@@ -48,17 +49,7 @@ func main() {
 		context   utils.Context
 	)
 
-	flag.StringVar(&optionsDB.DBNames, "dbnames", "", "file with a list of dbnames to connect to")
-	flag.StringVar(&optionsDB.DBName, "dbname", "", "database name to connect to")
-	flag.StringVar(&optionsDB.Host, "host", dbutils.DefaultHost, "database server host or socket directory (default: 'local socket')")
-	flag.StringVar(&optionsDB.Password, "password", password, "password for DB")
-	flag.IntVar(&optionsDB.Port, "port", dbutils.DefaultPort, "database server port (default: '5432')")
-	flag.StringVar(&optionsDB.Schema, "schema", dbutils.DefaultSchema, "database schema (default: 'public')")
-	flag.StringVar(&optionsDB.TunnelHost, "tunnelHost", "", "hostname of tunnel server")
-	flag.IntVar(&optionsDB.TunnelPort, "tunnelPort", dbutils.DefaultTunnelPort, "port for tunnel server default: '22')")
-	flag.StringVar(&optionsDB.TunnelPrivateKeyFile, "tunnelPrivateKeyFile", "", "path to private key file")
-	flag.StringVar(&optionsDB.TunnelUsername, "tunnelUsername", "", "username for tunnel server")
-	flag.StringVar(&optionsDB.Username, "username", username, "database user name")
+	optionsDB.Init()
 
 	flag.BoolVar(&context.Verbose, "verbose", false, "enable verbose logging")
 
