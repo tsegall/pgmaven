@@ -12,20 +12,20 @@ type Detector interface {
 	GetIssues() []utils.Issue
 	GetDurationMS() int64
 }
+
 type DetectorDetails struct {
 	HelpText string
 	Builder  func() Detector
 }
-type DetectorBuilder func() Detector
 
 var detectorRegistry map[string]DetectorDetails = map[string]DetectorDetails{
-	"All":              {"Execute all ", func() Detector { return &AllIssues{} }},
-	"TableIssues":      {"Analyze tables for issues", func() Detector { return &TableIssues{} }},
-	"DuplicateIndexes": {"Check for duplicate indexes", func() Detector { return &DuplicateIndexes{} }},
-	"Help":             {"Output usage", func() Detector { return &Help{} }},
-	"Queries":          {"Report queries with significant impact on the system", func() Detector { return &Queries{} }},
-	"SillyIndexes":     {"Check for silly indexes", func() Detector { return &SillyIndexes{} }},
-	"UnusedIndexes":    {"Check for unused indexes", func() Detector { return &UnusedIndexes{} }},
+	"All":            {"Execute all ", func() Detector { return &AllIssues{} }},
+	"TableIssues":    {"Analyze tables for issues", func() Detector { return &TableIssues{} }},
+	"DuplicateIndex": {"Check for duplicate indexes", func() Detector { return &DuplicateIndex{} }},
+	"Help":           {"Output usage", func() Detector { return &Help{} }},
+	"Queries":        {"Report queries with significant impact on the system", func() Detector { return &Queries{} }},
+	"SillyIndex":     {"Check for silly indexes", func() Detector { return &SillyIndex{} }},
+	"UnusedIndex":    {"Check for unused indexes", func() Detector { return &UnusedIndex{} }},
 }
 
 func NewDetector(name string) (d Detector, err error) {

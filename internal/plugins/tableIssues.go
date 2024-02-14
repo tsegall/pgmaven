@@ -12,7 +12,7 @@ type TableIssues struct {
 	datasource *dbutils.DataSource
 	context    utils.Context
 	issues     []utils.Issue
-	durationMS int64
+	timing     utils.Timing
 }
 
 const (
@@ -49,7 +49,7 @@ select relname, min(n_live_tup), max(n_live_tup), min(insert_dt), max(insert_dt)
 		return
 	}
 
-	d.durationMS = time.Now().UnixMilli() - startMS
+	d.timing.SetDurationMS(time.Now().UnixMilli() - startMS)
 }
 
 func tableIssuesProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
@@ -76,7 +76,7 @@ func tableIssuesProcessor(rowNumber int, columnTypes []*sql.ColumnType, values [
 
 	if maxRows > minTableReport && dailyPercent > tableGrowthThreshold {
 		detail := fmt.Sprintf("Table: %s, current rows: %d, is growing at %.2f%% per day\n%s", tableName, maxRows, dailyPercent, d.getUnusedIndexes(tableName))
-		d.issues = append(d.issues, utils.Issue{IssueType: "TableGrowth", Target: tableName, Detail: detail, Solution: "REVIEW table - consider partitioning and/or pruning\n"})
+		d.issues = append(d.issues, utils.Issue{IssueType: "TableGrowth", Target: tableName, Detail: detail, Severity: utils.Medium, Solution: "REVIEW table - consider partitioning and/or pruning\n"})
 	}
 
 	if maxRows > largeTableThreshold {
@@ -87,13 +87,13 @@ SELECT count(*)
 		partitionCount, _ := d.datasource.ExecuteQueryRow(isPartitionedQuery, []any{tableName})
 		if partitionCount.(int64) == 0 {
 			detail := fmt.Sprintf("Table: %s, current rows: %.2fM, insert only: %t, is large and not partitioned\n%s", tableName, float32(maxRows)/10000000.0, changes == 0, d.getUnusedIndexes(tableName))
-			d.issues = append(d.issues, utils.Issue{IssueType: "LargeTable", Target: tableName, Detail: detail, Solution: "REVIEW table - consider partitioning and/or pruning\n"})
+			d.issues = append(d.issues, utils.Issue{IssueType: "LargeTable", Target: tableName, Severity: utils.Medium, Detail: detail, Solution: "REVIEW table - consider partitioning and/or pruning\n"})
 		}
 	}
 }
 
 func (d *TableIssues) getUnusedIndexes(tableName string) string {
-	sub := UnusedIndexes{}
+	sub := UnusedIndex{}
 	sub.Init(d.context, d.datasource)
 	sub.Execute(tableName)
 	unused := sub.GetIssues()
@@ -119,5 +119,5 @@ func (d *TableIssues) GetIssues() []utils.Issue {
 }
 
 func (d *TableIssues) GetDurationMS() int64 {
-	return d.durationMS
+	return d.timing.GetDurationMS()
 }

@@ -10,7 +10,6 @@ import (
 )
 
 type Help struct {
-	durationMS int64
 }
 
 func (d *Help) Init(context utils.Context, ds *dbutils.DataSource) {
@@ -29,5 +28,5 @@ func (d *Help) GetIssues() []utils.Issue {
 }
 
 func (d *Help) GetDurationMS() int64 {
-	return d.durationMS
+	return 0
 }

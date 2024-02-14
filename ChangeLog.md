@@ -1,6 +1,11 @@
 
 ## Changes ##
 
+### 0.7.0
+ - ENH: Command/Summary - Output Server Version, Server Start Time, and whether pg_stat_statements are enabled, ensure pgmaven has been initialized
+ - ENH: Issues now have an associated severity
+ - BUG: --verbose was not honored
+
 ### 0.6.0
  - ENH: Flip to Posix flags ("github.com/spf13/pflag") rather than Go default
  - ENH: Unify DB Options

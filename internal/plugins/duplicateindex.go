@@ -11,18 +11,18 @@ import (
 	"pgmaven/internal/utils"
 )
 
-type DuplicateIndexes struct {
+type DuplicateIndex struct {
 	datasource *dbutils.DataSource
 	issues     []utils.Issue
-	durationMS int64
+	timing     utils.Timing
 }
 
-func (d *DuplicateIndexes) Init(context utils.Context, ds *dbutils.DataSource) {
+func (d *DuplicateIndex) Init(context utils.Context, ds *dbutils.DataSource) {
 	d.datasource = ds
 }
 
-// DuplicateIndexes reports on redundant indexes.
-func (d *DuplicateIndexes) Execute(args ...string) {
+// DuplicateIndex reports on redundant indexes.
+func (d *DuplicateIndex) Execute(args ...string) {
 	startMS := time.Now().UnixMilli()
 	d.issues = make([]utils.Issue, 0)
 
@@ -42,13 +42,13 @@ ORDER BY sum(pg_relation_size(idx)) DESC;
 		log.Printf("ERROR: DuplicateIndexQuery failed with error: %v\n", err)
 	}
 
-	d.durationMS = time.Now().UnixMilli() - startMS
+	d.timing.SetDurationMS(time.Now().UnixMilli() - startMS)
 }
 
 // duplicateIndexProcess is invoked for every row of the Duplicate Index Query.
 // The Query returns a row with the following format (tableName, index size, index1, index2) - where index1 and index2 are duplicated.
 func duplicateIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
-	d := self.(*DuplicateIndexes)
+	d := self.(*DuplicateIndex)
 	tableName := string((*values[0].(*interface{})).([]uint8))
 	indexSize := (*values[1].(*interface{})).(string)
 	index1 := string((*values[2].(*interface{})).([]uint8))
@@ -61,17 +61,17 @@ func duplicateIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, value
 
 	// If Index 2 is unique then kill Index 1
 	if strings.Contains(index2Definition, " UNIQUE ") {
-		d.issues = append(d.issues, utils.Issue{IssueType: "DuplicateIndex", Target: index1, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX %s\n", index1)})
+		d.issues = append(d.issues, utils.Issue{IssueType: "DuplicateIndex", Target: index1, Severity: utils.High, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX %s\n", index1)})
 		return
 	}
 
-	d.issues = append(d.issues, utils.Issue{IssueType: "DuplicateIndex", Target: index2, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX %s\n", index2)})
+	d.issues = append(d.issues, utils.Issue{IssueType: "DuplicateIndex", Target: index2, Severity: utils.High, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX %s\n", index2)})
 }
 
-func (d *DuplicateIndexes) GetIssues() []utils.Issue {
+func (d *DuplicateIndex) GetIssues() []utils.Issue {
 	return d.issues
 }
 
-func (d *DuplicateIndexes) GetDurationMS() int64 {
-	return d.durationMS
+func (d *DuplicateIndex) GetDurationMS() int64 {
+	return d.timing.GetDurationMS()
 }

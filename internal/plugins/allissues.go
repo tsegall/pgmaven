@@ -10,7 +10,7 @@ type AllIssues struct {
 	datasource *dbutils.DataSource
 	context    utils.Context
 	issues     []utils.Issue
-	durationMS int64
+	timing     utils.Timing
 }
 
 func (d *AllIssues) Init(context utils.Context, ds *dbutils.DataSource) {
@@ -21,7 +21,7 @@ func (d *AllIssues) Init(context utils.Context, ds *dbutils.DataSource) {
 // Run a set of detection routines.
 func (d *AllIssues) Execute(args ...string) {
 
-	routines := []string{"TableIssues", "DuplicateIndexes", "SillyIndexes", "UnusedIndexes"}
+	routines := []string{"TableIssues", "DuplicateIndex", "SillyIndex", "UnusedIndex"}
 
 	for _, element := range routines {
 		sub, err := NewDetector(element)
@@ -40,5 +40,5 @@ func (d *AllIssues) GetIssues() []utils.Issue {
 }
 
 func (d *AllIssues) GetDurationMS() int64 {
-	return d.durationMS
+	return d.timing.GetDurationMS()
 }

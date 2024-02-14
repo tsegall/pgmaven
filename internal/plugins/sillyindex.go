@@ -10,22 +10,22 @@ import (
 	"pgmaven/internal/utils"
 )
 
-type SillyIndexes struct {
+type SillyIndex struct {
 	datasource *dbutils.DataSource
 	rows       int64
 	issues     []utils.Issue
-	durationMS int64
+	timing     utils.Timing
 }
 
 const smallTable int64 = 100
 
-func (d *SillyIndexes) Init(context utils.Context, ds *dbutils.DataSource) {
+func (d *SillyIndex) Init(context utils.Context, ds *dbutils.DataSource) {
 	d.datasource = ds
 }
 
-// SillyIndexes reports on indexes that seem to be silly for a variety of reasons.
-func (d *SillyIndexes) Execute(args ...string) {
-	start := time.Now().UnixMilli()
+// SillyIndex reports on indexes that seem to be silly for a variety of reasons.
+func (d *SillyIndex) Execute(args ...string) {
+	startMS := time.Now().UnixMilli()
 	d.issues = make([]utils.Issue, 0)
 
 	tableQuery := `
@@ -64,11 +64,11 @@ order by
 		log.Printf("ERROR: Table query failed with error: %v\n", err)
 	}
 
-	d.durationMS = time.Now().UnixMilli() - start
+	d.timing.SetDurationMS(time.Now().UnixMilli() - startMS)
 }
 
 func tableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
-	d := self.(*SillyIndexes)
+	d := self.(*SillyIndex)
 	tableName := string((*values[0].(*interface{})).([]uint8))
 
 	query := fmt.Sprintf(`select count(*) from %s`, tableName)
@@ -112,7 +112,7 @@ func tableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 }
 
 func sillyIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
-	d := self.(*SillyIndexes)
+	d := self.(*SillyIndex)
 	tableName := string((*values[1].(*interface{})).([]uint8))
 	indexName := string((*values[2].(*interface{})).([]uint8))
 	indexSize := (*values[3].(*interface{})).(int64)
@@ -124,10 +124,10 @@ func sillyIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []
 	d.issues = append(d.issues, utils.Issue{IssueType: "SillyIndex", Target: indexName, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
 }
 
-func (d *SillyIndexes) GetIssues() []utils.Issue {
+func (d *SillyIndex) GetIssues() []utils.Issue {
 	return d.issues
 }
 
-func (d *SillyIndexes) GetDurationMS() int64 {
-	return d.durationMS
+func (d *SillyIndex) GetDurationMS() int64 {
+	return d.timing.GetDurationMS()
 }

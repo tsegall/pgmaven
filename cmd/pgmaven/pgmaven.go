@@ -86,7 +86,7 @@ func main() {
 		ds.SetDBName(dbName)
 		psqlInfo := ds.GetDataSourceString()
 
-		if options.Verbose {
+		if context.Verbose {
 			fmt.Printf("Connection String: %s\n", psqlInfo)
 		}
 
@@ -117,11 +117,11 @@ func main() {
 			}
 			detector.Init(context, ds)
 			detector.Execute(detectOptions[1:]...)
-			if options.Verbose {
-				fmt.Printf("Execution Time: %dms\n", detector.GetDurationMS())
-			}
 			for _, issue := range detector.GetIssues() {
 				issue.Dump()
+			}
+			if context.Verbose {
+				fmt.Printf("Execution Time: %dms\n", detector.GetDurationMS())
 			}
 			continue
 		}

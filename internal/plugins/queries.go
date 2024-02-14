@@ -24,9 +24,9 @@ type Queries struct {
 	datasource *dbutils.DataSource
 	context    utils.Context
 	issues     []utils.Issue
-	durationMS int64
 	startQuery map[int64]query
 	endQuery   map[int64]query
+	timing     utils.Timing
 }
 
 func (d *Queries) Init(context utils.Context, ds *dbutils.DataSource) {
@@ -139,7 +139,7 @@ SELECT usename, calls, mean_exec_time, total_exec_time, queryid, query
 		dur := time.Duration(v.total_exec_time * float64(time.Millisecond))
 		fmt.Printf("%s, %d, %.2f, %v, %.2f, %d, %s\n", v.userName, v.calls, v.mean_exec_time, dur, (v.total_exec_time*100)/total_exec_time, v.queryId, v.queryText)
 	}
-	d.durationMS = time.Now().UnixMilli() - startMS
+	d.timing.SetDurationMS(time.Now().UnixMilli() - startMS)
 }
 
 // difference returns the elements in `a` that aren't in `b`.
@@ -173,5 +173,5 @@ func (d *Queries) GetIssues() []utils.Issue {
 }
 
 func (d *Queries) GetDurationMS() int64 {
-	return d.durationMS
+	return d.timing.GetDurationMS()
 }

@@ -10,18 +10,18 @@ import (
 	"pgmaven/internal/utils"
 )
 
-type UnusedIndexes struct {
+type UnusedIndex struct {
 	datasource *dbutils.DataSource
 	issues     []utils.Issue
-	durationMS int64
+	timing     utils.Timing
 }
 
-func (d *UnusedIndexes) Init(context utils.Context, ds *dbutils.DataSource) {
+func (d *UnusedIndex) Init(context utils.Context, ds *dbutils.DataSource) {
 	d.datasource = ds
 }
 
-// UnusedIndexes reports on unused indexes.
-func (d *UnusedIndexes) Execute(args ...string) {
+// UnusedIndex reports on unused indexes.
+func (d *UnusedIndex) Execute(args ...string) {
 	startMS := time.Now().UnixMilli()
 	d.issues = make([]utils.Issue, 0)
 
@@ -62,7 +62,7 @@ WITH stat as (
 		log.Printf("ERROR: UnusedIndexQuery failed with error: %v\n", err)
 	}
 
-	d.durationMS = time.Now().UnixMilli() - startMS
+	d.timing.SetDurationMS(time.Now().UnixMilli() - startMS)
 }
 
 func quote(s string) string {
@@ -72,7 +72,7 @@ func quote(s string) string {
 // unusedIndexProcessor is invoked for every row of the Unused Index Query.
 // The Query returns a row with the following format (schemaname, tablename, indexname, index_size)
 func unusedIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
-	d := self.(*UnusedIndexes)
+	d := self.(*UnusedIndex)
 	tableName := string((*values[1].(*interface{})).([]uint8))
 	indexName := string((*values[2].(*interface{})).([]uint8))
 	indexSize := (*values[3].(*interface{})).(int64)
@@ -82,13 +82,13 @@ func unusedIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values [
 	index1Definition := d.datasource.IndexDefinition(quote(indexName))
 	indexDetail := fmt.Sprintf("Index definition: '%s'\n", index1Definition)
 
-	d.issues = append(d.issues, utils.Issue{IssueType: "UnusedIndex", Target: indexName, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
+	d.issues = append(d.issues, utils.Issue{IssueType: "UnusedIndex", Target: indexName, Severity: utils.High, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
 }
 
-func (d *UnusedIndexes) GetIssues() []utils.Issue {
+func (d *UnusedIndex) GetIssues() []utils.Issue {
 	return d.issues
 }
 
-func (d *UnusedIndexes) GetDurationMS() int64 {
-	return d.durationMS
+func (d *UnusedIndex) GetDurationMS() int64 {
+	return d.timing.GetDurationMS()
 }

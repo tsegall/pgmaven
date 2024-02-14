@@ -49,6 +49,11 @@ func main() {
 		context   utils.Context
 	)
 
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	optionsDB.Init()
 
 	flag.BoolVar(&context.Verbose, "verbose", false, "enable verbose logging")
@@ -93,7 +98,7 @@ func main() {
 			ds.SetDBName(dbName)
 			psqlInfo := ds.GetDataSourceString()
 
-			if options.Verbose {
+			if context.Verbose {
 				fmt.Printf("Connection String: %s\n", psqlInfo)
 			}
 
