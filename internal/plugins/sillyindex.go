@@ -61,7 +61,7 @@ order by
 
 	err := d.datasource.ExecuteQueryRows(tableQuery, []any{d.datasource.GetSchema(), smallTable}, tableProcessor, d)
 	if err != nil {
-		log.Printf("ERROR: Table query failed with error: %v\n", err)
+		log.Printf("ERROR: Database: %s, Table query failed, error: %v\n", d.datasource.GetDBName(), err)
 	}
 
 	d.timing.SetDurationMS(time.Now().UnixMilli() - startMS)
@@ -74,7 +74,7 @@ func tableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 	query := fmt.Sprintf(`select count(*) from %s`, tableName)
 	rows, err := d.datasource.ExecuteQueryRow(query, nil)
 	if err != nil {
-		log.Printf("ERROR: Query '%s' failed with error: %v\n", query, err)
+		log.Printf("ERROR: Database: %s, Query '%s' failed, error: %v\n", d.datasource.GetDBName(), query, err)
 	}
 
 	d.rows = rows.(int64)
@@ -103,7 +103,7 @@ func tableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 		`
 		err := d.datasource.ExecuteQueryRows(sillyIndexQuery, []any{d.datasource.GetSchema(), tableName}, sillyIndexProcessor, d)
 		if err != nil {
-			log.Printf("ERROR: SillyIndexQuery failed with error: %v\n", err)
+			log.Printf("ERROR: Database: %s, SillyIndexQuery failed with error: %v\n", d.datasource.GetDBName(), err)
 		}
 
 	} else {
@@ -121,7 +121,7 @@ func sillyIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []
 	index1Definition := d.datasource.IndexDefinition(quote(indexName))
 	indexDetail := fmt.Sprintf("Index definition: '%s'\n", index1Definition)
 
-	d.issues = append(d.issues, utils.Issue{IssueType: "SillyIndex", Target: indexName, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
+	d.issues = append(d.issues, utils.Issue{IssueType: "SillyIndex", Target: indexName, Severity: utils.High, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
 }
 
 func (d *SillyIndex) GetIssues() []utils.Issue {

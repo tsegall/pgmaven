@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -52,6 +53,11 @@ func main() {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	buffer, err := os.ReadFile(filepath.Join(homeDir, ".pgpass"))
+	if err == nil {
+		fmt.Printf("%s\n", buffer)
 	}
 
 	optionsDB.Init()

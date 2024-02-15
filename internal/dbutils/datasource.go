@@ -89,15 +89,19 @@ func (ds *DataSource) GetSchema() string {
 }
 
 func (ds *DataSource) GetDataSourceString() string {
+	password := ds.options.Password
+	if password == "" {
+		password = "''"
+	}
 	if ds.tunnel != nil {
 		return fmt.Sprintf("host=%s port=%d user=%s "+
 			"password=%s dbname=%s sslmode=disable",
-			"localhost", ds.tunnel.Local.Port, ds.options.Username, ds.options.Password, ds.dbName)
+			"localhost", ds.tunnel.Local.Port, ds.options.Username, password, ds.dbName)
 	}
 
 	return fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
-		ds.options.Host, ds.options.Port, ds.options.Username, ds.options.Password, ds.dbName)
+		ds.options.Host, ds.options.Port, ds.options.Username, password, ds.dbName)
 }
 
 func (ds *DataSource) ExecuteQueryRows(query string, queryArgs []any, processor func(int, []*sql.ColumnType, []interface{}, any), processorArg any) error {
@@ -107,14 +111,14 @@ func (ds *DataSource) ExecuteQueryRows(query string, queryArgs []any, processor 
 	rows, err = ds.database.Query(query, queryArgs...)
 
 	if err != nil {
-		fmt.Printf("ERROR: Failed to query database, error: %v\n", err)
+		fmt.Printf("ERROR: Database: %s, Failed to query database, error: %v\n", ds.GetDBName(), err)
 		return err
 	}
 	defer rows.Close()
 
 	columnsTypes, err := rows.ColumnTypes()
 	if err != nil {
-		fmt.Printf("ERROR: Failed to get Column Types, error: %v\n", err)
+		fmt.Printf("ERROR: Database: %s, Failed to get Column Types, error: %v\n", ds.GetDBName(), err)
 		return err
 	}
 
@@ -150,8 +154,19 @@ func (ds *DataSource) ExecuteQueryRow(query string, queryArgs []any) (any, error
 	var result any
 	err := row.Scan(&result)
 	if err != nil {
-		log.Printf("ERROR: Failed to get row, error: %v\n", err)
+		log.Printf("ERROR: Database: %s, Failed to get row, error: %v\n", ds.GetDBName(), err)
 		return "", err
+	}
+
+	return result, nil
+}
+
+func (ds *DataSource) Exec(statement string, statementArgs []any) (sql.Result, error) {
+	result, err := ds.database.Exec(statement, statementArgs...)
+
+	if err != nil {
+		log.Printf("ERROR: Database: %s, Failed to get row, error: %v\n", ds.GetDBName(), err)
+		return nil, err
 	}
 
 	return result, nil
@@ -184,7 +199,7 @@ func (ds *DataSource) TableList(minRows int) ([]string, error) {
 	for rows.Next() {
 		err := rows.Scan(&table_name)
 		if err != nil {
-			log.Printf("ERROR: Failed to get row, error: %v\n", err)
+			log.Printf("ERROR: Database: %s, Failed to get row, error: %v\n", ds.GetDBName(), err)
 			return nil, err
 		}
 		ret = append(ret, table_name)
@@ -197,7 +212,7 @@ func (ds *DataSource) IndexDefinition(indexName string) string {
 	query := fmt.Sprintf(`SELECT pg_get_indexdef('%s'::regclass);`, indexName)
 	ret, err := ds.ExecuteQueryRow(query, nil)
 	if err != nil {
-		log.Printf("ERROR: IndexDefinition failed with error: %v\n", err)
+		log.Printf("ERROR: Database: %s, IndexDefinition failed with error: %v\n", ds.GetDBName(), err)
 		return ""
 	}
 

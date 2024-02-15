@@ -35,31 +35,31 @@ WITH stat as (
 	SELECT schemaname, relname, indexrelname, indexrelid, max(idx_scan) as scans
 		FROM pgmaven_pg_stat_user_indexes ppsui
 		GROUP BY schemaname, relname, indexrelname, indexrelid)
-	SELECT
-		stat.schemaname,
-		stat.relname AS tablename,
-		stat.indexrelname AS indexname,
-		pg_relation_size(stat.indexrelid) AS index_size,
-		pg_table_size(stat.indexrelid) as table_size
-		FROM stat
-		JOIN pg_catalog.pg_index i using (indexrelid)
-		JOIN pg_catalog.pg_indexes i2 ON stat.schemaname = i2.schemaname AND stat.relname = i2.tablename AND stat.indexrelname = i2.indexname
-		WHERE stat.scans = 0                -- has never been scanned
-		and i2.indexdef like '%%USING btree%%'   -- only want BTREE indexes
-		AND 0 <>ALL (i.indkey)                 -- no index column is an expression
-		AND NOT i.indisunique                  -- is not a UNIQUE index
-		%s
-		AND NOT EXISTS                         -- does not enforce a constraint
-		(SELECT 1 FROM pg_catalog.pg_constraint c
-			WHERE c.conindid = stat.indexrelid)
-		AND NOT EXISTS                         -- is not an index partition
-		(SELECT 1 FROM pg_catalog.pg_inherits AS inh
-			WHERE inh.inhrelid = stat.indexrelid)
-		ORDER by tablename asc, indexname asc;
+SELECT
+	stat.schemaname,
+	stat.relname AS tablename,
+	stat.indexrelname AS indexname,
+	pg_relation_size(stat.indexrelid) AS index_size,
+	pg_table_size(stat.indexrelid) as table_size
+	FROM stat
+	JOIN pg_catalog.pg_index i using (indexrelid)
+	JOIN pg_catalog.pg_indexes i2 ON stat.schemaname = i2.schemaname AND stat.relname = i2.tablename AND stat.indexrelname = i2.indexname
+	WHERE stat.scans = 0                -- has never been scanned
+	and i2.indexdef like '%%USING btree%%'   -- only want BTREE indexes
+	AND 0 <>ALL (i.indkey)                 -- no index column is an expression
+	AND NOT i.indisunique                  -- is not a UNIQUE index
+	%s
+	AND NOT EXISTS                         -- does not enforce a constraint
+	(SELECT 1 FROM pg_catalog.pg_constraint c
+		WHERE c.conindid = stat.indexrelid)
+	AND NOT EXISTS                         -- is not an index partition
+	(SELECT 1 FROM pg_catalog.pg_inherits AS inh
+		WHERE inh.inhrelid = stat.indexrelid)
+	ORDER by tablename asc, indexname asc;
 `, tableClause)
 	err := d.datasource.ExecuteQueryRows(unusedIndexQuery, nil, unusedIndexProcessor, d)
 	if err != nil {
-		log.Printf("ERROR: UnusedIndexQuery failed with error: %v\n", err)
+		log.Printf("ERROR: Database: %s, UnusedIndexQuery failed with error: %v\n", d.datasource.GetDBName(), err)
 	}
 
 	d.timing.SetDurationMS(time.Now().UnixMilli() - startMS)

@@ -45,7 +45,7 @@ select relname, min(n_live_tup), max(n_live_tup), min(insert_dt), max(insert_dt)
 	err := d.datasource.ExecuteQueryRows(query, nil, tableIssuesProcessor, d)
 
 	if err != nil {
-		fmt.Printf("ERROR: TableIssues: failed to list tables")
+		fmt.Printf("ERROR: Database: %s, TableIssues: failed to list tables, error: %v\n", d.datasource.GetDBName(), err)
 		return
 	}
 
@@ -66,7 +66,7 @@ func tableIssuesProcessor(rowNumber int, columnTypes []*sql.ColumnType, values [
 	const daySeconds = 24 * 60 * 60
 
 	if timeDiff < daySeconds/2 {
-		fmt.Printf("WARNING: TableIssues: Table: %s, insufficient data captured by snapshots (%d seconds)\n", tableName, timeDiff)
+		fmt.Printf("WARNING: Database: %s, TableIssues: Table: %s, insufficient data captured by snapshots (%d seconds)\n", d.datasource.GetDBName(), tableName, timeDiff)
 		return
 	}
 

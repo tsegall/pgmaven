@@ -27,6 +27,7 @@ type Issue struct {
 func (i *Issue) Dump() {
 	fmt.Printf("ISSUE: %s\n", i.IssueType)
 	fmt.Printf("SEVERITY: %s\n", i.Severity)
+	fmt.Printf("TARGET: %s\n", i.Target)
 	fmt.Printf("DETAIL:\n%s", indent(i.Detail))
 	fmt.Printf("SUGGESTION:\n%s", indent(i.Solution))
 }

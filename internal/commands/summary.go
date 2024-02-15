@@ -10,15 +10,15 @@ type Summary struct {
 	datasource *dbutils.DataSource
 }
 
-func (s *Summary) Init(context utils.Context, ds *dbutils.DataSource) {
-	s.datasource = ds
+func (c *Summary) Init(context utils.Context, ds *dbutils.DataSource) {
+	c.datasource = ds
 }
 
-func (s *Summary) Execute(args ...string) {
+func (c *Summary) Execute(args ...string) {
 	isSetupQuery := `
 	select count(*) FROM information_schema.tables where table_schema = $1 and table_type = 'BASE TABLE' and table_name ilike 'PGMAVEN_%'
 	`
-	count, err := s.datasource.ExecuteQueryRow(isSetupQuery, []any{s.datasource.GetSchema()})
+	count, err := c.datasource.ExecuteQueryRow(isSetupQuery, []any{c.datasource.GetSchema()})
 	if err != nil {
 		log.Fatalf("Summary: Failed to check for existence of pgmaven tables, err: %v\n", err)
 	}
@@ -42,5 +42,5 @@ func (s *Summary) Execute(args ...string) {
 	select 'TrackingMin', min(insert_dt)::text from pgmaven_pg_stat_statements
 	union all
 	select 'TrackingMax', max(insert_dt)::text from pgmaven_pg_stat_statements`
-	s.datasource.ExecuteQueryRows(query, []any{s.datasource.GetDBName(), s.datasource.GetSchema()}, dump, s)
+	c.datasource.ExecuteQueryRows(query, []any{c.datasource.GetDBName(), c.datasource.GetSchema()}, dump, c)
 }

@@ -12,7 +12,7 @@ import (
 type Help struct {
 }
 
-func (h *Help) Init(context utils.Context, ds *dbutils.DataSource) {
+func (c *Help) Init(context utils.Context, ds *dbutils.DataSource) {
 }
 
 func (h *Help) Execute(args ...string) {

@@ -25,7 +25,6 @@ const (
 	password          = "<SETME>"
 	DefaultSchema     = "public"
 	DefaultTunnelPort = 22
-	username          = "tsegall"
 )
 
 func (o *DBOptions) Init() {
@@ -40,5 +39,5 @@ func (o *DBOptions) Init() {
 	flag.StringVar(&o.TunnelPassphrase, "tunnelPassphrase", "", "passphrase for private key file")
 	flag.StringVar(&o.TunnelPrivateKeyFile, "tunnelPrivateKeyFile", "", "path to private key file")
 	flag.StringVar(&o.TunnelUsername, "tunnelUsername", "", "username for tunnel server")
-	flag.StringVar(&o.Username, "username", username, "database user name")
+	flag.StringVar(&o.Username, "username", "", "database user name")
 }

@@ -26,12 +26,12 @@ func (c *CreateTables) createTable(tableName string) {
 	query := fmt.Sprintf("CREATE TABLE pgmaven_%s as table %s with no data;", tableName, tableName)
 	_, err := c.datasource.GetDatabase().Exec(query)
 	if err != nil {
-		log.Printf("ERROR: CreateTable table creation failed with error: %s\n", err)
+		log.Printf("ERROR: Database: %s, CreateTable table creation failed, error: %s\n", c.datasource.GetDBName(), err)
 	}
 
 	query = fmt.Sprintf("ALTER TABLE pgmaven_%s ADD COLUMN insert_dt TIMESTAMP DEFAULT NOW();", tableName)
 	_, err = c.datasource.GetDatabase().Exec(query)
 	if err != nil {
-		log.Printf("ERROR: CreateTable alter table failed with error: %s\n", err)
+		log.Printf("ERROR: Database: %s, CreateTable alter table failed, error: %s\n", c.datasource.GetDBName(), err)
 	}
 }

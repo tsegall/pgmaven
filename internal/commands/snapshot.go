@@ -10,14 +10,14 @@ type Snapshot struct {
 	context    utils.Context
 }
 
-func (s *Snapshot) Init(context utils.Context, ds *dbutils.DataSource) {
-	s.datasource = ds
-	s.context = context
+func (c *Snapshot) Init(context utils.Context, ds *dbutils.DataSource) {
+	c.datasource = ds
+	c.context = context
 }
 
-func (s *Snapshot) Execute(args ...string) {
+func (c *Snapshot) Execute(args ...string) {
 	snapShotter := new(SnapshotTable)
-	snapShotter.Init(s.context, s.datasource)
+	snapShotter.Init(c.context, c.datasource)
 	for _, table := range StatsTables {
 		snapShotter.Execute(table)
 	}

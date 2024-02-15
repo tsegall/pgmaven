@@ -1,6 +1,15 @@
 
 ## Changes ##
 
+### 0.8.0
+ - ENH: Command/Snapshot - Should print the name of the Database with an error
+ - ENH: Command/Exec - Execute SQL non-query command on the Database(s)
+ - ENH: Where possible print out the Database name on errors
+ - ENH: Command/QueryRows - Support !<filename>
+ - BUG: Remove silly default for username
+ - BUG: Fix case when password is unset
+
+
 ### 0.7.0
  - ENH: Command/Summary - Output Server Version, Server Start Time, and whether pg_stat_statements are enabled, ensure pgmaven has been initialized
  - ENH: Issues now have an associated severity

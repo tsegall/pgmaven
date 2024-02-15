@@ -18,6 +18,7 @@ type CommandDetails struct {
 
 var commandRegistry map[string]CommandDetails = map[string]CommandDetails{
 	"CreateTables":   {"Create tables required for tracking activity over time", func() Command { return &CreateTables{} }},
+	"Exec":           {"Execute SQL statement across all DBs provided", func() Command { return &Exec{} }},
 	"QueryRow":       {"Query (single row) to execute across all DBs provided", func() Command { return &QueryRow{} }},
 	"QueryRows":      {"Query (multiple rows) to execute across all DBs provided", func() Command { return &QueryRows{} }},
 	"Help":           {"Output usage", func() Command { return &Help{} }},

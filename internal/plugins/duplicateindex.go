@@ -39,7 +39,7 @@ ORDER BY sum(pg_relation_size(idx)) DESC;
 `
 	err := d.datasource.ExecuteQueryRows(duplicateIndexQuery, nil, duplicateIndexProcessor, d)
 	if err != nil {
-		log.Printf("ERROR: DuplicateIndexQuery failed with error: %v\n", err)
+		log.Printf("ERROR: Database: %s, DuplicateIndexQuery failed with error: %v\n", d.datasource.GetDBName(), err)
 	}
 
 	d.timing.SetDurationMS(time.Now().UnixMilli() - startMS)
