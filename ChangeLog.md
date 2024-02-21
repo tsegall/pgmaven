@@ -1,6 +1,10 @@
 
 ## Changes ##
 
+### 0.9.0
+ - ENH: Command/NewActivity - list new queries/new index use in the last Duration/DurationOffset
+ - ENH: Detect/Queries - make output more friendly for importing into Excel, also add decoder based on pattern-matching SQL
+
 ### 0.8.0
  - ENH: Command/Snapshot - Should print the name of the Database with an error
  - ENH: Command/Exec - Execute SQL non-query command on the Database(s)

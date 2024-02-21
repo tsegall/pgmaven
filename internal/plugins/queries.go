@@ -1,11 +1,17 @@
 package plugins
 
 import (
+	"bufio"
 	"database/sql"
 	"fmt"
+	"hash/fnv"
+	"log"
+	"os"
 	"pgmaven/internal/dbutils"
 	"pgmaven/internal/utils"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/exp/maps"
@@ -21,43 +27,60 @@ type query struct {
 }
 
 type Queries struct {
-	datasource *dbutils.DataSource
-	context    utils.Context
-	issues     []utils.Issue
-	startQuery map[int64]query
-	endQuery   map[int64]query
-	timing     utils.Timing
+	datasource     *dbutils.DataSource
+	context        utils.Context
+	issues         []utils.Issue
+	startQuery     map[int64]query
+	endQuery       map[int64]query
+	timing         utils.Timing
+	hashDecoder    map[string]string
+	patternDecoder map[string]string
 }
 
 func (d *Queries) Init(context utils.Context, ds *dbutils.DataSource) {
 	d.datasource = ds
 	d.context = context
+	d.initDecoder()
 }
 
-func (d *Queries) getClosest(t time.Time) any {
-	query := `with
-	date_options as (
-	select
-		distinct(insert_dt) as insert_dt
-	from
-		pgmaven_pg_stat_statements),
-	closest as (
-	select
-		insert_dt,
-		abs(extract(epoch from insert_dt - $1 AT TIME ZONE 'UTC')) as diff
-	from
-		date_options
-	order by
-		diff asc
-	limit 1)
-	select
-		insert_dt
-	from
-		closest
-	`
-	closest, _ := d.datasource.ExecuteQueryRow(query, []any{t})
+func (d *Queries) initDecoder() {
+	d.hashDecoder = make(map[string]string)
+	d.patternDecoder = make(map[string]string)
+	file, err := os.Open("decoder.txt")
+	if err != nil {
+		return
+	}
+	defer file.Close()
 
-	return closest
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		elts := strings.Split(line, " -> ")
+		if elts[0][0] == '/' {
+			d.patternDecoder[elts[0][1:len(elts[0])-1]] = elts[1]
+		} else {
+			d.hashDecoder[elts[0]] = elts[1]
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (d *Queries) decode(query string) string {
+	h := strconv.FormatUint(uint64(hash(query)), 16)
+	ret, ok := d.hashDecoder[h]
+	if ok {
+		return ret
+	}
+	for k, v := range d.patternDecoder {
+		if strings.Contains(query, k) {
+			return v
+		}
+	}
+
+	return ""
 }
 
 // Queries - report queries with significant impact on the system.
@@ -69,8 +92,8 @@ func (d *Queries) Execute(args ...string) {
 
 	end := time.Now().Add(-d.context.DurationOffset)
 	start := end.Add(-d.context.Duration)
-	endClosest := d.getClosest(end).(time.Time)
-	startClosest := d.getClosest(start).(time.Time)
+	endClosest := d.datasource.GetClosest("pgmaven_pg_stat_statements", end).(time.Time)
+	startClosest := d.datasource.GetClosest("pgmaven_pg_stat_statements", start).(time.Time)
 
 	totalExecTime, _ := d.datasource.ExecuteQueryRow(`select sum(total_exec_time) from pgmaven_pg_stat_statements where insert_dt = $1`, []any{endClosest})
 	totalExecTimeMS := totalExecTime.(float64)
@@ -116,7 +139,9 @@ SELECT usename, calls, mean_exec_time, total_exec_time, queryid, query
 		}
 	}
 
-	fmt.Printf("Analysis period: %v - %v (%v)\n", startClosest, endClosest, endClosest.Sub(startClosest))
+	if d.context.Verbose {
+		fmt.Printf("Analysis period: %v - %v (%v)\n", startClosest, endClosest, endClosest.Sub(startClosest))
+	}
 
 	total_exec_time := 0.0
 	for k, v := range d.endQuery {
@@ -134,10 +159,14 @@ SELECT usename, calls, mean_exec_time, total_exec_time, queryid, query
 		return d.endQuery[keys[i]].total_exec_time > d.endQuery[keys[j]].total_exec_time
 	})
 
+	fmt.Println("username,calls,mean_exec_time,duration,percent,queryid,hash,source,query")
 	for _, k := range keys {
 		v := d.endQuery[k]
 		dur := time.Duration(v.total_exec_time * float64(time.Millisecond))
-		fmt.Printf("%s, %d, %.2f, %v, %.2f, %d, %s\n", v.userName, v.calls, v.mean_exec_time, dur, (v.total_exec_time*100)/total_exec_time, v.queryId, v.queryText)
+		h := strconv.FormatUint(uint64(hash(v.queryText)), 16)
+		fmt.Printf("%s,%d,%.2f,%v,%.2f,%d,%s,%s,%s\n",
+			v.userName, v.calls, v.mean_exec_time, dur, (v.total_exec_time*100)/total_exec_time, v.queryId, h,
+			d.decode(v.queryText), utils.QuoteAlways(utils.RemoveBlankLines(v.queryText)))
 	}
 	d.timing.SetDurationMS(time.Now().UnixMilli() - startMS)
 }
@@ -155,6 +184,12 @@ func difference(a, b []int64) []int64 {
 		}
 	}
 	return diff
+}
+
+func hash(s string) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return h.Sum32()
 }
 
 func queryProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {

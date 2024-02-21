@@ -218,3 +218,30 @@ func (ds *DataSource) IndexDefinition(indexName string) string {
 
 	return ret.(string)
 }
+
+// Get closest record to the time provided based on the supplied table
+func (d *DataSource) GetClosest(table string, t time.Time) any {
+	query := `with
+	date_options as (
+	select
+		distinct(insert_dt) as insert_dt
+	from
+		%s),
+	closest as (
+	select
+		insert_dt,
+		abs(extract(epoch from insert_dt - $1 AT TIME ZONE 'UTC')) as diff
+	from
+		date_options
+	order by
+		diff asc
+	limit 1)
+	select
+		insert_dt
+	from
+		closest
+	`
+	closest, _ := d.ExecuteQueryRow(fmt.Sprintf(query, table), []any{t})
+
+	return closest
+}
