@@ -4,6 +4,7 @@ import (
 	"log"
 	"pgmaven/internal/dbutils"
 	"pgmaven/internal/utils"
+	"time"
 )
 
 type AllIssues struct {
@@ -20,6 +21,7 @@ func (d *AllIssues) Init(context utils.Context, ds *dbutils.DataSource) {
 
 // Run a set of detection routines.
 func (d *AllIssues) Execute(args ...string) {
+	startMS := time.Now().UnixMilli()
 
 	routines := []string{"TableIssues", "DuplicateIndex", "SillyIndex", "UnusedIndex"}
 
@@ -33,6 +35,8 @@ func (d *AllIssues) Execute(args ...string) {
 		sub.Execute()
 		d.issues = append(d.issues, sub.GetIssues()...)
 	}
+
+	d.timing.SetDurationMS(time.Now().UnixMilli() - startMS)
 }
 
 func (d *AllIssues) GetIssues() []utils.Issue {

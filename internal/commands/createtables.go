@@ -29,9 +29,16 @@ func (c *CreateTables) createTable(tableName string) {
 		log.Printf("ERROR: Database: %s, CreateTable table creation failed, error: %s\n", c.datasource.GetDBName(), err)
 	}
 
-	query = fmt.Sprintf("ALTER TABLE pgmaven_%s ADD COLUMN insert_dt TIMESTAMP DEFAULT NOW();", tableName)
-	_, err = c.datasource.GetDatabase().Exec(query)
+	stmt := fmt.Sprintf("ALTER TABLE pgmaven_%s ADD COLUMN insert_dt TIMESTAMP DEFAULT NOW();", tableName)
+	_, err = c.datasource.GetDatabase().Exec(stmt)
 	if err != nil {
 		log.Printf("ERROR: Database: %s, CreateTable alter table failed, error: %s\n", c.datasource.GetDBName(), err)
 	}
+
+	stmt = fmt.Sprintf("CREATE INDEX pgmaven_ix_%s_insert_dt ON pgmaven_%s(insert_dt)", tableName, tableName)
+	_, err = c.datasource.GetDatabase().Exec(stmt)
+	if err != nil {
+		log.Printf("ERROR: Database: %s, CreateTable create index failed, error: %s\n", c.datasource.GetDBName(), err)
+	}
+
 }

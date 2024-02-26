@@ -93,15 +93,19 @@ func (ds *DataSource) GetDataSourceString() string {
 	if password == "" {
 		password = "''"
 	}
+	userClause := ""
+	if ds.options.Username != "" {
+		userClause = "user=" + ds.options.Username
+	}
 	if ds.tunnel != nil {
-		return fmt.Sprintf("host=%s port=%d user=%s "+
+		return fmt.Sprintf("host=localhost port=%d %s "+
 			"password=%s dbname=%s sslmode=disable",
-			"localhost", ds.tunnel.Local.Port, ds.options.Username, password, ds.dbName)
+			ds.tunnel.Local.Port, userClause, password, ds.dbName)
 	}
 
-	return fmt.Sprintf("host=%s port=%d user=%s "+
+	return fmt.Sprintf("host=%s port=%d %s "+
 		"password=%s dbname=%s sslmode=disable",
-		ds.options.Host, ds.options.Port, ds.options.Username, password, ds.dbName)
+		ds.options.Host, ds.options.Port, userClause, password, ds.dbName)
 }
 
 func (ds *DataSource) ExecuteQueryRows(query string, queryArgs []any, processor func(int, []*sql.ColumnType, []interface{}, any), processorArg any) error {

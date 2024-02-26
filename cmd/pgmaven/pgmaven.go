@@ -75,6 +75,9 @@ func main() {
 		}
 		dbNames = strings.Split(string(content), "\n")
 	} else {
+		if optionsDB.DBName == "" {
+			optionsDB.DBName = "''"
+		}
 		dbNames = []string{optionsDB.DBName}
 	}
 

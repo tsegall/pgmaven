@@ -48,6 +48,7 @@ SELECT
 	and i2.indexdef like '%%USING btree%%'   -- only want BTREE indexes
 	AND 0 <>ALL (i.indkey)                 -- no index column is an expression
 	AND NOT i.indisunique                  -- is not a UNIQUE index
+	AND stat.indexrelname NOT LIKE 'pgmaven_%%'
 	%s
 	AND NOT EXISTS                         -- does not enforce a constraint
 	(SELECT 1 FROM pg_catalog.pg_constraint c

@@ -1,6 +1,12 @@
 
 ## Changes ##
 
+### 0.10.0
+ - ENH: Add indexes on insert_dt to pgmaven tables
+ - ENH: Detect/All - should print out the Execution time
+ - ENH: Honor Postgres environment variables PGDATABASE, PGHOST, PGPASSWORD, PGPORT, PGUSER if set
+ - INT: Upgrade dependencies
+
 ### 0.9.0
  - ENH: Command/NewActivity - list new queries/new index use in the last Duration/DurationOffset
  - ENH: Detect/Queries - make output more friendly for importing into Excel, also add decoder based on pattern-matching SQL
