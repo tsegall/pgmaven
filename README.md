@@ -1,5 +1,21 @@
 # Detect issues in your PostgreSQL database
 
+## Usage
+
+1. Initialize monitoring, e.g.
+
+`$ bin/pgmaven --username <user> --host <host> --dbname <dbname> --command MonitorInitialize`
+
+2. Run Agent and collect data at some reasonable frequency (e.g. 1 hour)
+
+`$ bin/pgagent --username <user> --host <host> --dbname <dbname> --frequency 1h`
+
+3. Allow to collect data for some period, note if looking at UnusedIndexes the period should encompass all use cases, e.g. end of month processing
+4. Issue commands - e.g. see DuplicateIndex example below
+
+## Notes
+- Clean up Duplicate Indexes before reviewing Unused Indexes
+
 ## Commands
 
 |Command|Description|
@@ -7,11 +23,13 @@
 |CreateTables|Create tables required for tracking activity over time|
 |Exec|Execute SQL statement across all DBs provided|
 |Help|Output usage|
+|MonitorInitialize|Initialize infrastructure for activity monitoring|
+|MonitorReset|Reset activity monitoring data|
+|MonitorTerminate|Delete infrastructure for activity monitoring|
 |NewActivity|Output New Queries in the specified duration|
 |QueryRow|Query (single row) to execute across all DBs provided|
 |QueryRows|Query (multiple rows) to execute across all DBs provided|
-|ResetIndexData|Reset index data|
-|Snapshot|Snapshot statistics tables|
+|Snapshot|Snapshot statistics tables (typically performed by agent)|
 |Summary|Status summary|
 
 ### Examples
@@ -22,6 +40,7 @@
 
 `$ bin/pgmaven --dbname demo --command 'QueryRows:!complexQuery.sql`
 
+`$ bin/pgmaven --dbname demo --command NewActivity --duration 24h`
 
 ## Issues
 
@@ -49,7 +68,21 @@
     SUGGESTION:
     	DROP INDEX silly_key
 
+`$ bin/pgmaven --dbname demo --detect TableIssues`
+
+    ISSUE: TableGrowth
+    SEVERITY: MEDIUM
+    TARGET: boarding_passes
+    DETAIL:
+            Table: action, current rows: 374983, is growing at 3.15% per day
+    SUGGESTION:
+            REVIEW table - consider partitioning and/or pruning
+
+`$ bin/pgmaven --dbname demo --detect Queries --duration 24h`
+
+
 ## Building
 
 `$ go build -o bin/pgmaven cmd/pgmaven/*.go`
+
 `go build -o bin/pgagent cmd/pgagent/*.go`

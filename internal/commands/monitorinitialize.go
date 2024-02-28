@@ -7,22 +7,23 @@ import (
 	"pgmaven/internal/utils"
 )
 
-type CreateTables struct {
+type MonitorInitialize struct {
 	datasource *dbutils.DataSource
 }
 
-func (c *CreateTables) Init(context utils.Context, ds *dbutils.DataSource) {
+func (c *MonitorInitialize) Init(context utils.Context, ds *dbutils.DataSource) {
 	c.datasource = ds
 }
 
-// CreateTables will create the tables required to track index activity over time.
-func (c *CreateTables) Execute(args ...string) {
+// MonitorInitialize will create the tables required to track index activity over time.
+func (c *MonitorInitialize) Execute(args ...string) {
 	for _, table := range StatsTables {
 		c.createTable(table)
 	}
+	new(Snapshot).Execute()
 }
 
-func (c *CreateTables) createTable(tableName string) {
+func (c *MonitorInitialize) createTable(tableName string) {
 	query := fmt.Sprintf("CREATE TABLE pgmaven_%s as table %s with no data;", tableName, tableName)
 	_, err := c.datasource.GetDatabase().Exec(query)
 	if err != nil {

@@ -1,6 +1,10 @@
 
 ## Changes ##
 
+### 0.11.0
+ - ENH: Add Command/MonitorTerminate
+ - ENH: Rename Command/CreateTables -> Command/MonitorInitialize; Rename Command/ResetIndexData -> Command/MonitorReset
+
 ### 0.10.0
  - ENH: Add indexes on insert_dt to pgmaven tables
  - ENH: Detect/All - should print out the Execution time
