@@ -47,12 +47,10 @@
 |Issue|Description|
 |-----|-----------|
 |All|Execute all|
-|DuplicateIndex|Check for duplicate indexes|
 |Help|Output usage|
+|IndexIssues|Analyze indexes for issues|
 |Queries|Report queries with significant impact on the system|
-|SillyIndex|Check for silly indexes|
 |TableIssues|Analyze tables for issues|
-|UnusedIndex|Check for unused indexes|
 
 ### Examples
 
@@ -86,3 +84,5 @@
 `$ go build -o bin/pgmaven cmd/pgmaven/*.go`
 
 `go build -o bin/pgagent cmd/pgagent/*.go`
+
+`go list -m -u all`

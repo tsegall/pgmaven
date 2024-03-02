@@ -1,6 +1,12 @@
 
 ## Changes ##
 
+### 0.12.0
+ - ENH: Move index issue detection to IndexIssues (similar to TableIssues)
+ - ENH: Support selective issue detection for Detect/TableIssues and Detect/IndexIssues
+ - ENH: Broaden out the index issue detections
+ - ENH: Improve performance of Detect/IndexIssues
+
 ### 0.11.0
  - ENH: Add Command/MonitorTerminate
  - ENH: Rename Command/CreateTables -> Command/MonitorInitialize; Rename Command/ResetIndexData -> Command/MonitorReset

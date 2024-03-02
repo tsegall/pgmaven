@@ -1,4 +1,4 @@
-package plugins
+package issues
 
 import (
 	"database/sql"
@@ -9,10 +9,11 @@ import (
 )
 
 type TableIssues struct {
-	datasource *dbutils.DataSource
-	context    utils.Context
-	issues     []utils.Issue
-	timing     utils.Timing
+	datasource    *dbutils.DataSource
+	context       utils.Context
+	issues        []utils.Issue
+	timing        utils.Timing
+	specificIssue string
 }
 
 const (
@@ -26,21 +27,21 @@ func (d *TableIssues) Init(context utils.Context, ds *dbutils.DataSource) {
 	d.context = context
 }
 
+// Search for table-related issues.  Optional arg if provided will constrain to only looking for specific issue.
 func (d *TableIssues) Execute(args ...string) {
 	startMS := time.Now().UnixMilli()
 	d.issues = make([]utils.Issue, 0)
 
-	tableClause := ""
 	if len(args) != 0 {
-		tableClause = "AND relname = '" + args[0] + "'"
+		d.specificIssue = args[0]
 	}
-	query := fmt.Sprintf(`
+
+	query := `
 select relname, min(n_live_tup), max(n_live_tup), min(insert_dt), max(insert_dt), max(n_tup_upd + n_tup_del + n_tup_hot_upd)
 	from pgmaven_pg_stat_user_tables
 	where last_analyze is not null
 	and relname not like 'pgmaven%%'
-	%s
-	group by relname`, tableClause)
+	group by relname`
 
 	err := d.datasource.ExecuteQueryRows(query, nil, tableIssuesProcessor, d)
 
@@ -50,6 +51,14 @@ select relname, min(n_live_tup), max(n_live_tup), min(insert_dt), max(insert_dt)
 	}
 
 	d.timing.SetDurationMS(time.Now().UnixMilli() - startMS)
+}
+
+func (d *TableIssues) isIssueEnabled(issue string) bool {
+	if d.specificIssue == "" {
+		return true
+	}
+
+	return issue == d.specificIssue
 }
 
 func tableIssuesProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
@@ -74,12 +83,12 @@ func tableIssuesProcessor(rowNumber int, columnTypes []*sql.ColumnType, values [
 	rowsPerDay := float32(countDiff) / days
 	dailyPercent := 100 * rowsPerDay / float32(maxRows)
 
-	if maxRows > minTableReport && dailyPercent > tableGrowthThreshold {
+	if d.isIssueEnabled("TableGrowth") && maxRows > minTableReport && dailyPercent > tableGrowthThreshold {
 		detail := fmt.Sprintf("Table: %s, current rows: %d, is growing at %.2f%% per day\n%s", tableName, maxRows, dailyPercent, d.getUnusedIndexes(tableName))
 		d.issues = append(d.issues, utils.Issue{IssueType: "TableGrowth", Target: tableName, Detail: detail, Severity: utils.Medium, Solution: "REVIEW table - consider partitioning and/or pruning\n"})
 	}
 
-	if maxRows > largeTableThreshold {
+	if d.isIssueEnabled("TableSizeLarge") && maxRows > largeTableThreshold {
 		isPartitionedQuery := `
 SELECT count(*)
 	FROM   pg_catalog.pg_inherits
@@ -87,13 +96,13 @@ SELECT count(*)
 		partitionCount, _ := d.datasource.ExecuteQueryRow(isPartitionedQuery, []any{tableName})
 		if partitionCount.(int64) == 0 {
 			detail := fmt.Sprintf("Table: %s, current rows: %.2fM, insert only: %t, is large and not partitioned\n%s", tableName, float32(maxRows)/10000000.0, changes == 0, d.getUnusedIndexes(tableName))
-			d.issues = append(d.issues, utils.Issue{IssueType: "LargeTable", Target: tableName, Severity: utils.Medium, Detail: detail, Solution: "REVIEW table - consider partitioning and/or pruning\n"})
+			d.issues = append(d.issues, utils.Issue{IssueType: "TableSizeLarge", Target: tableName, Severity: utils.Medium, Detail: detail, Solution: "REVIEW table - consider partitioning and/or pruning\n"})
 		}
 	}
 }
 
 func (d *TableIssues) getUnusedIndexes(tableName string) string {
-	sub := UnusedIndex{}
+	sub := IndexIssues{}
 	sub.Init(d.context, d.datasource)
 	sub.Execute(tableName)
 	unused := sub.GetIssues()

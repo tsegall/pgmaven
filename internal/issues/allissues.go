@@ -1,4 +1,4 @@
-package plugins
+package issues
 
 import (
 	"log"
@@ -23,7 +23,7 @@ func (d *AllIssues) Init(context utils.Context, ds *dbutils.DataSource) {
 func (d *AllIssues) Execute(args ...string) {
 	startMS := time.Now().UnixMilli()
 
-	routines := []string{"TableIssues", "DuplicateIndex", "SillyIndex", "UnusedIndex"}
+	routines := []string{"TableIssues", "IndexIssues"}
 
 	for _, element := range routines {
 		sub, err := NewDetector(element)

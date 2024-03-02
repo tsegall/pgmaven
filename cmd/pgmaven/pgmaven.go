@@ -26,7 +26,7 @@ import (
 
 	"pgmaven/internal/commands"
 	"pgmaven/internal/dbutils"
-	"pgmaven/internal/plugins"
+	"pgmaven/internal/issues"
 	"pgmaven/internal/utils"
 
 	// _ "github.com/jackc/pgx/v5/stdlib"
@@ -113,7 +113,7 @@ func main() {
 
 		if options.Detect != "" {
 			detectOptions := strings.Split(options.Detect, ":")
-			detector, err := plugins.NewDetector(detectOptions[0])
+			detector, err := issues.NewDetector(detectOptions[0])
 			if err != nil {
 				log.Println("ERROR: Failed to locate detector\n", err)
 				continue
