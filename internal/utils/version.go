@@ -3,7 +3,7 @@ package utils
 import "strconv"
 
 const MajorVersion int = 0
-const MinorVersion int = 12
+const MinorVersion int = 13
 const PatchVersion int = 0
 
 func GetVersionString() string {

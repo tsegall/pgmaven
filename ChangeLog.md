@@ -1,6 +1,9 @@
 
 ## Changes ##
 
+### 0.13.0
+ - ENH: Add IndexBloat detection to Detect/IndexIssues
+
 ### 0.12.0
  - ENH: Move index issue detection to IndexIssues (similar to TableIssues)
  - ENH: Support selective issue detection for Detect/TableIssues and Detect/IndexIssues

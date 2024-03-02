@@ -52,11 +52,24 @@
 |Queries|Report queries with significant impact on the system|
 |TableIssues|Analyze tables for issues|
 
+### Index Issues Detected
+ - IndexBloat - Index is bloated, should it be reindexed?
+ - IndexDuplicate - Duplicate index, one of the pair should be dropped
+ - IndexHighWriteLargeNonBtree
+ - IndexLowScansHighWrites
+ - IndexSeldomUsedLarge - Index is seldom used and on a large table, is it warranted?
+ - IndexSmall - Index is on a small table, is it productive?
+ - IndexUnused - Index is unused, should it be dropped?
+
+### Table Issues Detected
+ - TableGrowth
+ - TableSizeLarge
+
 ### Examples
 
-`$ bin/pgmaven --dbname demo --detect DuplicateIndex`
+`$ bin/pgmaven --dbname demo --detect IndexIssues:IndexDuplicate`
 
-    ISSUE: DuplicateIndex
+    ISSUE: IndexDuplicate
     SEVERITY: HIGH
     TARGET: boarding_passes_pkey
     DETAIL:
