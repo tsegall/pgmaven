@@ -48,7 +48,7 @@ func (d *IndexIssues) Execute(args ...string) {
 
 	if d.isIssueEnabled("IndexDuplicate") || d.isIssueEnabled("IndexSmall") || d.isIssueEnabled("IndexBloat") || d.isIssueEnabled("IndexOverlapping") {
 		if d.isIssueEnabled("IndexBloat") {
-			d.doBloat()
+			d.doIndexBloat()
 		}
 
 		if d.isIssueEnabled("IndexDuplicate") {
@@ -362,7 +362,7 @@ func smallIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []
 	d.issues = append(d.issues, utils.Issue{IssueType: "IndexSmall", Target: indexName, Severity: utils.High, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
 }
 
-func (d *IndexIssues) doBloat() {
+func (d *IndexIssues) doIndexBloat() {
 	d.tableSizes = make(map[string]int64)
 
 	indexBloatQuery := `

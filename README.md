@@ -13,6 +13,73 @@
 3. Allow to collect data for some period, note if looking at UnusedIndexes the period should encompass all use cases, e.g. end of month processing
 4. Issue commands - e.g. see IndexDuplicate example below
 
+## Issues
+
+|Issue|Description|
+|-----|-----------|
+|All|Execute all|
+|Help|Output usage|
+|IndexIssues|Analyze indexes for issues|
+|Queries|Report queries with significant impact on the system|
+|TableIssues|Analyze tables for issues|
+
+### Index Issues Detected
+ - IndexBloat - Index is bloated, should it be reindexed?
+ - IndexDuplicate - Duplicate index, one of the pair should be dropped
+ - IndexHighWriteLargeNonBtree
+ - IndexLowScansHighWrites
+ - IndexOverlapping - Index overlaps with another index
+ - IndexSeldomUsedLarge - Index is seldom used and on a large table, is it warranted?
+ - IndexSmall - Index is on a small table, is it productive?
+ - IndexUnused - Index is unused, should it be dropped?
+
+### Notes
+- When multiple Index issues are detected, the order of addressing should be:
+  - Duplicate Indexes
+  - Overlapping Indexes
+  - Unused Indexes
+
+### Examples
+
+The following will detect all index-related issues
+
+`$ bin/pgmaven --dbname demo --detect IndexIssues`
+
+The following will just scan for index duplicates
+
+`$ bin/pgmaven --dbname demo --detect IndexIssues:IndexDuplicate`
+
+    ISSUE: IndexDuplicate
+    SEVERITY: HIGH
+    TARGET: silly_key
+    DETAIL:
+    	Table: boarding_passes, Index Size: 614 MB, Duplicate indexes (boarding_passes_pkey, silly_key)
+    	First Index: 'CREATE UNIQUE INDEX boarding_passes_pkey ON bookings.boarding_passes USING btree (ticket_no, flight_id)'
+    	Second Index: 'CREATE UNIQUE INDEX silly_key ON bookings.boarding_passes USING btree (ticket_no, flight_id)'
+    SUGGESTION:
+    	DROP INDEX silly_key
+
+### Table Issues Detected
+ - TableBloat
+ - TableGrowth
+ - TableSizeLarge
+
+### Examples
+
+The following will detect all table-related issues
+
+`$ bin/pgmaven --dbname demo --detect TableIssues`
+
+    ISSUE: TableGrowth
+    SEVERITY: MEDIUM
+    TARGET: boarding_passes
+    DETAIL:
+            Table: action, current rows: 374983, is growing at 3.15% per day
+    SUGGESTION:
+            REVIEW table - consider partitioning and/or pruning
+
+`$ bin/pgmaven --dbname demo --detect Queries --duration 24h`
+
 ## Commands
 
 |Command|Description|
@@ -38,65 +105,6 @@
 `$ bin/pgmaven --dbname demo --command 'QueryRows:!complexQuery.sql'`
 
 `$ bin/pgmaven --dbname demo --command NewActivity --duration 24h`
-
-## Issues
-
-|Issue|Description|
-|-----|-----------|
-|All|Execute all|
-|Help|Output usage|
-|IndexIssues|Analyze indexes for issues|
-|Queries|Report queries with significant impact on the system|
-|TableIssues|Analyze tables for issues|
-
-### Index Issues Detected
- - IndexBloat - Index is bloated, should it be reindexed?
- - IndexDuplicate - Duplicate index, one of the pair should be dropped
- - IndexHighWriteLargeNonBtree
- - IndexLowScansHighWrites
- - IndexOverlapping - Index overlaps with another index
- - IndexSeldomUsedLarge - Index is seldom used and on a large table, is it warranted?
- - IndexSmall - Index is on a small table, is it productive?
- - IndexUnused - Index is unused, should it be dropped?
-
-### Notes
-- When multiple Index issues are detected, the order of addressing should probably be
-  = Duplicate Indexes
-  - Overlapping Indexes
-  - Unused Indexes
-
-### Examples
-
-`$ bin/pgmaven --dbname demo --detect IndexIssues:IndexDuplicate`
-
-    ISSUE: IndexDuplicate
-    SEVERITY: HIGH
-    TARGET: silly_key
-    DETAIL:
-    	Table: boarding_passes, Index Size: 614 MB, Duplicate indexes (boarding_passes_pkey, silly_key)
-    	First Index: 'CREATE UNIQUE INDEX boarding_passes_pkey ON bookings.boarding_passes USING btree (ticket_no, flight_id)'
-    	Second Index: 'CREATE UNIQUE INDEX silly_key ON bookings.boarding_passes USING btree (ticket_no, flight_id)'
-    SUGGESTION:
-    	DROP INDEX silly_key
-
-### Table Issues Detected
- - TableGrowth
- - TableSizeLarge
-
-### Examples
-
-`$ bin/pgmaven --dbname demo --detect TableIssues`
-
-    ISSUE: TableGrowth
-    SEVERITY: MEDIUM
-    TARGET: boarding_passes
-    DETAIL:
-            Table: action, current rows: 374983, is growing at 3.15% per day
-    SUGGESTION:
-            REVIEW table - consider partitioning and/or pruning
-
-`$ bin/pgmaven --dbname demo --detect Queries --duration 24h`
-
 
 ## Building
 

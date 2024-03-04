@@ -1,6 +1,9 @@
 
 ## Changes ##
 
+### 0.15.0
+ - ENH: Add TableBloat detection to Detect/TableIssues
+
 ### 0.14.0
  - ENH: Add IndexOverlapping detection to Detect/IndexIssues
 
