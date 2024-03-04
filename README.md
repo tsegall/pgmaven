@@ -11,10 +11,7 @@
 `$ bin/pgagent --username <user> --host <host> --dbname <dbname> --frequency 1h`
 
 3. Allow to collect data for some period, note if looking at UnusedIndexes the period should encompass all use cases, e.g. end of month processing
-4. Issue commands - e.g. see DuplicateIndex example below
-
-## Notes
-- Clean up Duplicate Indexes before reviewing Unused Indexes
+4. Issue commands - e.g. see IndexDuplicate example below
 
 ## Commands
 
@@ -38,7 +35,7 @@
 
 `$ bin/pgmaven --dbname demo --command 'QueryRows:SELECT table_name FROM information_schema.tables'`
 
-`$ bin/pgmaven --dbname demo --command 'QueryRows:!complexQuery.sql`
+`$ bin/pgmaven --dbname demo --command 'QueryRows:!complexQuery.sql'`
 
 `$ bin/pgmaven --dbname demo --command NewActivity --duration 24h`
 
@@ -57,13 +54,16 @@
  - IndexDuplicate - Duplicate index, one of the pair should be dropped
  - IndexHighWriteLargeNonBtree
  - IndexLowScansHighWrites
+ - IndexOverlapping - Index overlaps with another index
  - IndexSeldomUsedLarge - Index is seldom used and on a large table, is it warranted?
  - IndexSmall - Index is on a small table, is it productive?
  - IndexUnused - Index is unused, should it be dropped?
 
-### Table Issues Detected
- - TableGrowth
- - TableSizeLarge
+### Notes
+- When multiple Index issues are detected, the order of addressing should probably be
+  = Duplicate Indexes
+  - Overlapping Indexes
+  - Unused Indexes
 
 ### Examples
 
@@ -71,13 +71,19 @@
 
     ISSUE: IndexDuplicate
     SEVERITY: HIGH
-    TARGET: boarding_passes_pkey
+    TARGET: silly_key
     DETAIL:
     	Table: boarding_passes, Index Size: 614 MB, Duplicate indexes (boarding_passes_pkey, silly_key)
     	First Index: 'CREATE UNIQUE INDEX boarding_passes_pkey ON bookings.boarding_passes USING btree (ticket_no, flight_id)'
     	Second Index: 'CREATE UNIQUE INDEX silly_key ON bookings.boarding_passes USING btree (ticket_no, flight_id)'
     SUGGESTION:
     	DROP INDEX silly_key
+
+### Table Issues Detected
+ - TableGrowth
+ - TableSizeLarge
+
+### Examples
 
 `$ bin/pgmaven --dbname demo --detect TableIssues`
 
@@ -96,6 +102,6 @@
 
 `$ go build -o bin/pgmaven cmd/pgmaven/*.go`
 
-`go build -o bin/pgagent cmd/pgagent/*.go`
+`$ go build -o bin/pgagent cmd/pgagent/*.go`
 
-`go list -m -u all`
+`$ go list -m -u all`

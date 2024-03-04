@@ -11,12 +11,24 @@ import (
 	"pgmaven/internal/utils"
 )
 
+type index struct {
+	tableName  string
+	indexName  string
+	indexCols  string
+	isUnique   bool
+	size       string
+	definition string
+	scans      int64
+	dropped    bool
+}
+
 type IndexIssues struct {
 	datasource    *dbutils.DataSource
 	issues        []utils.Issue
 	timing        utils.Timing
 	specificIssue string
 	tableSizes    map[string]int64
+	indexes       map[string]*index
 }
 
 const smallTable int64 = 100
@@ -34,16 +46,21 @@ func (d *IndexIssues) Execute(args ...string) {
 		d.specificIssue = args[0]
 	}
 
-	if d.isIssueEnabled("IndexDuplicate") || d.isIssueEnabled("IndexSmall") || d.isIssueEnabled("IndexBloat") {
+	if d.isIssueEnabled("IndexDuplicate") || d.isIssueEnabled("IndexSmall") || d.isIssueEnabled("IndexBloat") || d.isIssueEnabled("IndexOverlapping") {
+		if d.isIssueEnabled("IndexBloat") {
+			d.doBloat()
+		}
+
 		if d.isIssueEnabled("IndexDuplicate") {
 			d.doDuplicate()
 		}
-		if d.isIssueEnabled("IndexSmall") {
-			d.doSmall()
+
+		if d.isIssueEnabled("IndexOverlapping") {
+			d.doOverlapping()
 		}
 
-		if d.isIssueEnabled("IndexBloat") {
-			d.doBloat()
+		if d.isIssueEnabled("IndexSmall") {
+			d.doSmall()
 		}
 
 		if d.specificIssueEnabled() {
@@ -183,7 +200,7 @@ func indexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 		if indexIssue != "IndexHighWriteLargeNonBtree" {
 			solution = fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)
 		} else {
-			solution = "NONE proposed"
+			solution = "NONE proposed\n"
 		}
 
 		d.issues = append(d.issues, utils.Issue{IssueType: indexIssue, Target: indexName, Severity: utils.High,
@@ -453,6 +470,108 @@ func bloatProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 
 	d.issues = append(d.issues, utils.Issue{IssueType: "IndexBloat", Target: indexName, Severity: utils.High, Detail: detail,
 		Solution: fmt.Sprintf("REINDEX INDEX CONCURRENTLY \"%s\"\n", indexName)})
+}
+
+func (d *IndexIssues) doOverlapping() {
+	d.tableSizes = make(map[string]int64)
+	d.indexes = make(map[string]*index)
+
+	indexOverlappingQuery := `
+	WITH index_cols_ord as (
+		SELECT attrelid, attnum, attname
+		FROM pg_attribute
+			JOIN pg_index ON indexrelid = attrelid
+		WHERE indkey[0] > 0
+		ORDER BY attrelid, attnum
+	),
+	index_col_list AS (
+		SELECT attrelid,
+			array_agg(attname) as cols
+		FROM index_cols_ord
+		GROUP BY attrelid
+	),
+	dup_natts AS (
+	SELECT indrelid, indexrelid, indisunique
+	FROM pg_index as ind
+	WHERE EXISTS ( SELECT 1
+		FROM pg_index as ind2
+		WHERE ind.indrelid = ind2.indrelid
+		AND ( ind.indkey @> ind2.indkey
+		 OR ind.indkey <@ ind2.indkey )
+		AND ind.indkey[0] = ind2.indkey[0]
+		AND ind.indkey <> ind2.indkey
+		AND ind.indexrelid <> ind2.indexrelid
+	) )
+	SELECT userdex.schemaname as schema_name,
+		userdex.relname as table_name,
+		userdex.indexrelname as index_name,
+		array_to_string(cols, ', ') as index_cols,
+		dup_natts.indisunique,
+		pg_size_pretty(pg_relation_size(dup_natts.indexrelid)) as index_size,
+		indexdef,
+		idx_scan as index_scans
+	FROM pg_stat_user_indexes as userdex
+		JOIN index_col_list ON index_col_list.attrelid = userdex.indexrelid
+		JOIN dup_natts ON userdex.indexrelid = dup_natts.indexrelid
+		JOIN pg_indexes ON userdex.schemaname = pg_indexes.schemaname
+			AND userdex.indexrelname = pg_indexes.indexname
+	ORDER BY userdex.schemaname, userdex.relname, cols, userdex.indexrelname;
+	`
+
+	err := d.datasource.ExecuteQueryRows(indexOverlappingQuery, nil, overlappingProcessor, d)
+	if err != nil {
+		log.Printf("ERROR: Database: %s, Overlapping index query failed with error: %v\n", d.datasource.GetDBName(), err)
+	}
+}
+
+func (d *IndexIssues) findOverlapper(tableName string, indexCols string) (found bool, superceded *index) {
+	cols := strings.Split(indexCols, ", ")
+
+	key := tableName + "###"
+	for i := 0; i < len(cols); i++ {
+		if i != 0 {
+			key += ", "
+		}
+		key += cols[i]
+		val, ok := d.indexes[key]
+		// If the key exists
+		if ok {
+			return true, val
+		}
+	}
+
+	return false, nil
+
+}
+
+func overlappingProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
+	d := self.(*IndexIssues)
+	tableName := string((*values[1].(*interface{})).([]uint8))
+	indexName := string((*values[2].(*interface{})).([]uint8))
+	indexCols := (*values[3].(*interface{})).(string)
+	isUnique := (*values[4].(*interface{})).(bool)
+	indexSize := (*values[5].(*interface{})).(string)
+	indexDefinition := (*values[6].(*interface{})).(string)
+	indexScans := (*values[7].(*interface{})).(int64)
+
+	found, superceded := d.findOverlapper(tableName, indexCols)
+	if !found {
+		d.indexes[tableName+"###"+indexCols] = &index{tableName, indexName, indexCols, isUnique, indexSize, indexDefinition, indexScans, false}
+		return
+	}
+
+	if !superceded.isUnique && !superceded.dropped {
+		supercededDetail := fmt.Sprintf("Table: %s, Index: '%s', Size: %s, Cols: '%s', IsUnique: %t, Scans: %d\nIndex Definition: '%s'\n",
+			tableName, superceded.indexName, superceded.size, superceded.indexCols, superceded.isUnique, superceded.scans, superceded.definition)
+		replacedDetail := fmt.Sprintf("Replaced by '%s', index on '%s', Size: %s, Scans: %d\nIndex Definition: '%s'\n",
+			indexName, indexCols, indexSize, indexScans, indexDefinition)
+
+		d.issues = append(d.issues, utils.Issue{IssueType: "IndexOverlapping", Target: superceded.indexName, Severity: utils.High,
+			Detail: supercededDetail + replacedDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", superceded.indexName)})
+
+		// Mark as dropped - so we don't drop it again
+		superceded.dropped = true
+	}
 }
 
 func (d *IndexIssues) GetIssues() []utils.Issue {

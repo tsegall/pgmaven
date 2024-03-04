@@ -1,6 +1,9 @@
 
 ## Changes ##
 
+### 0.14.0
+ - ENH: Add IndexOverlapping detection to Detect/IndexIssues
+
 ### 0.13.0
  - ENH: Add IndexBloat detection to Detect/IndexIssues
 
