@@ -26,7 +26,7 @@ type query struct {
 	queryText       string
 }
 
-type Queries struct {
+type QueryIssues struct {
 	datasource     *dbutils.DataSource
 	context        utils.Context
 	issues         []utils.Issue
@@ -37,13 +37,13 @@ type Queries struct {
 	patternDecoder map[string]string
 }
 
-func (d *Queries) Init(context utils.Context, ds *dbutils.DataSource) {
+func (d *QueryIssues) Init(context utils.Context, ds *dbutils.DataSource) {
 	d.datasource = ds
 	d.context = context
 	d.initDecoder()
 }
 
-func (d *Queries) initDecoder() {
+func (d *QueryIssues) initDecoder() {
 	d.hashDecoder = make(map[string]string)
 	d.patternDecoder = make(map[string]string)
 	file, err := os.Open("decoder.txt")
@@ -68,7 +68,7 @@ func (d *Queries) initDecoder() {
 	}
 }
 
-func (d *Queries) decode(query string) string {
+func (d *QueryIssues) decode(query string) string {
 	h := strconv.FormatUint(uint64(hash(query)), 16)
 	ret, ok := d.hashDecoder[h]
 	if ok {
@@ -84,7 +84,7 @@ func (d *Queries) decode(query string) string {
 }
 
 // Queries - report queries with significant impact on the system.
-func (d *Queries) Execute(args ...string) {
+func (d *QueryIssues) Execute(args ...string) {
 	startMS := time.Now().UnixMilli()
 	d.issues = make([]utils.Issue, 0)
 	d.startQuery = make(map[int64]query)
@@ -203,10 +203,10 @@ func queryProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 	m[queryId] = query{userName, calls, mean_exec_time, total_exec_time, queryId, queryText}
 }
 
-func (d *Queries) GetIssues() []utils.Issue {
+func (d *QueryIssues) GetIssues() []utils.Issue {
 	return nil
 }
 
-func (d *Queries) GetDurationMS() int64 {
+func (d *QueryIssues) GetDurationMS() int64 {
 	return d.timing.GetDurationMS()
 }

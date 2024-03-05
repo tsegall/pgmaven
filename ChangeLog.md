@@ -1,6 +1,9 @@
 
 ## Changes ##
 
+### 0.16.0
+ - ENH: Tune Detect/IndexIssues:IndexOverlapping
+
 ### 0.15.0
  - ENH: Add TableBloat detection to Detect/TableIssues
 

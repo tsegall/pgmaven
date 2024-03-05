@@ -17,6 +17,7 @@ type index struct {
 	indexCols  string
 	isUnique   bool
 	size       string
+	sizeBytes  int64
 	definition string
 	scans      int64
 	dropped    bool
@@ -449,6 +450,7 @@ SELECT nspname as schema_name, table_name, index_name,
 FROM raw_bloat
 WHERE ( realbloat > 50 and wastedbytes > 50000000 )
 ORDER BY wastedbytes DESC;`
+
 	err := d.datasource.ExecuteQueryRows(indexBloatQuery, nil, bloatProcessor, d)
 	if err != nil {
 		log.Printf("ERROR: Database: %s, Bloat query failed with error: %v\n", d.datasource.GetDBName(), err)
@@ -507,6 +509,7 @@ func (d *IndexIssues) doOverlapping() {
 		userdex.indexrelname as index_name,
 		array_to_string(cols, ', ') as index_cols,
 		dup_natts.indisunique,
+		pg_relation_size(dup_natts.indexrelid) as index_size_bytes,
 		pg_size_pretty(pg_relation_size(dup_natts.indexrelid)) as index_size,
 		indexdef,
 		idx_scan as index_scans
@@ -550,13 +553,14 @@ func overlappingProcessor(rowNumber int, columnTypes []*sql.ColumnType, values [
 	indexName := string((*values[2].(*interface{})).([]uint8))
 	indexCols := (*values[3].(*interface{})).(string)
 	isUnique := (*values[4].(*interface{})).(bool)
-	indexSize := (*values[5].(*interface{})).(string)
-	indexDefinition := (*values[6].(*interface{})).(string)
-	indexScans := (*values[7].(*interface{})).(int64)
+	indexSizeBytes := (*values[5].(*interface{})).(int64)
+	indexSize := (*values[6].(*interface{})).(string)
+	indexDefinition := (*values[7].(*interface{})).(string)
+	indexScans := (*values[8].(*interface{})).(int64)
 
 	found, superceded := d.findOverlapper(tableName, indexCols)
 	if !found {
-		d.indexes[tableName+"###"+indexCols] = &index{tableName, indexName, indexCols, isUnique, indexSize, indexDefinition, indexScans, false}
+		d.indexes[tableName+"###"+indexCols] = &index{tableName, indexName, indexCols, isUnique, indexSize, indexSizeBytes, indexDefinition, indexScans, false}
 		return
 	}
 
@@ -566,8 +570,17 @@ func overlappingProcessor(rowNumber int, columnTypes []*sql.ColumnType, values [
 		replacedDetail := fmt.Sprintf("Replaced by '%s', index on '%s', Size: %s, Scans: %d\nIndex Definition: '%s'\n",
 			indexName, indexCols, indexSize, indexScans, indexDefinition)
 
+		replacementUtilization := float32(indexScans*100) / float32(indexScans+superceded.scans)
+		replacementRelativeSize := float32(indexSizeBytes) / float32(superceded.sizeBytes)
+
+		var note string
+		if !isUnique && replacementRelativeSize > 1.5 && replacementUtilization < .1 {
+			note = " -- NOTE: replacement is lightly utilized and significantly larger, consider dropping \"" + indexName + "\" instead"
+		}
+
+		solution := fmt.Sprintf("DROP INDEX \"%s\"%s\n", superceded.indexName, note)
 		d.issues = append(d.issues, utils.Issue{IssueType: "IndexOverlapping", Target: superceded.indexName, Severity: utils.High,
-			Detail: supercededDetail + replacedDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", superceded.indexName)})
+			Detail: supercededDetail + replacedDetail, Solution: solution})
 
 		// Mark as dropped - so we don't drop it again
 		superceded.dropped = true
