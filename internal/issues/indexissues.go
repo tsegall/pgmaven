@@ -47,13 +47,18 @@ func (d *IndexIssues) Execute(args ...string) {
 		d.specificIssue = args[0]
 	}
 
-	if d.isIssueEnabled("IndexDuplicate") || d.isIssueEnabled("IndexSmall") || d.isIssueEnabled("IndexBloat") || d.isIssueEnabled("IndexOverlapping") {
+	if d.isIssueEnabled("IndexDuplicate") || d.isIssueEnabled("IndexSmall") || d.isIssueEnabled("IndexBloat") ||
+		d.isIssueEnabled("IndexOverlapping") || d.isIssueEnabled("IndexMissing") {
 		if d.isIssueEnabled("IndexBloat") {
 			d.doIndexBloat()
 		}
 
 		if d.isIssueEnabled("IndexDuplicate") {
 			d.doDuplicate()
+		}
+
+		if d.isIssueEnabled("IndexMissing") {
+			d.doIndexMissing()
 		}
 
 		if d.isIssueEnabled("IndexOverlapping") {
@@ -316,7 +321,7 @@ func (d *IndexIssues) doSmallCheck() {
 			inClause.WriteString(tableName)
 			inClause.WriteRune('\'')
 		} else {
-			d.issues = append(d.issues, utils.Issue{IssueType: "AnalyzeSuggested", Target: tableName, Detail: "n_live_tup < row count\n", Solution: fmt.Sprintf("ANALYZE \"%s\"\n", tableName)})
+			d.issues = append(d.issues, utils.Issue{IssueType: "TableAnalyze", Target: tableName, Detail: "n_live_tup < row count\n", Solution: fmt.Sprintf("ANALYZE \"%s\"\n", tableName)})
 		}
 	}
 
@@ -467,11 +472,56 @@ func bloatProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 	tableSize := (*values[9].(*interface{})).(string)
 	indexScans := (*values[10].(*interface{})).(int64)
 
-	detail := fmt.Sprintf("Table: %s, Size: %s, Index: '%s', Size: %s, Bloat: %s%%, Bloat Size: %s, Scans: %d)\n",
+	detail := fmt.Sprintf("Table: %s, Size: %s, Index: '%s', Size: %s, Bloat: %s%%, Bloat Size: %s, Scans: %d\n",
 		tableName, tableSize, indexName, indexSize, bloatPercent, bloatSize, indexScans)
 
 	d.issues = append(d.issues, utils.Issue{IssueType: "IndexBloat", Target: indexName, Severity: utils.High, Detail: detail,
 		Solution: fmt.Sprintf("REINDEX INDEX CONCURRENTLY \"%s\"\n", indexName)})
+}
+
+func (d *IndexIssues) doIndexMissing() {
+	d.tableSizes = make(map[string]int64)
+
+	indexMissingQuery := `
+SELECT
+schemaname,
+relname AS table_name,
+pg_size_pretty(pg_table_size(relid)::numeric) as table_size,
+seq_scan,
+idx_scan,
+(seq_scan * 100) / (seq_scan + idx_scan) seq_percent,
+seq_tup_read,
+seq_tup_read / seq_scan as avg_seq_tup_read
+FROM pg_stat_all_tables
+WHERE schemaname='public'
+AND pg_table_size(relid)::numeric > 1000000        -- reasonable table size
+AND seq_scan + idx_scan > 100000                   -- reasonable number of scans
+AND (seq_scan * 100) / (seq_scan + idx_scan) > 10  -- seq scan percent is > 10%
+and seq_tup_read > 1000000                         -- decent number of tuples read via the seq scan
+and seq_scan != 0
+and seq_tup_read / seq_scan > 1000`
+
+	err := d.datasource.ExecuteQueryRows(indexMissingQuery, nil, missingProcessor, d)
+	if err != nil {
+		log.Printf("ERROR: Database: %s, Index missing query failed with error: %v\n", d.datasource.GetDBName(), err)
+	}
+}
+
+func missingProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
+	d := self.(*IndexIssues)
+	tableName := string((*values[1].(*interface{})).([]uint8))
+	tableSize := (*values[2].(*interface{})).(string)
+	seqScans := (*values[3].(*interface{})).(int64)
+	indexScans := (*values[4].(*interface{})).(int64)
+	seqPercent := (*values[5].(*interface{})).(int64)
+	seqTuplesRead := (*values[6].(*interface{})).(int64)
+	avgSeqTuplesRead := (*values[7].(*interface{})).(int64)
+
+	detail := fmt.Sprintf("Table: %s, Size: %s, Seq Scans: %d, Index Scans: %d, Seq Percent: %d%%, Seq tuples read: %d, Avg seq tuples read: %d\n",
+		tableName, tableSize, seqScans, indexScans, seqPercent, seqTuplesRead, avgSeqTuplesRead)
+
+	d.issues = append(d.issues, utils.Issue{IssueType: "IndexMissing", Target: tableName, Severity: utils.High, Detail: detail,
+		Solution: fmt.Sprintf("-- Consider adding an index to \"%s\"\n", tableName)})
 }
 
 func (d *IndexIssues) doOverlapping() {

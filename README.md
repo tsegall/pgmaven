@@ -11,7 +11,13 @@
 `$ bin/pgagent --username <user> --host <host> --dbname <dbname> --frequency 1h`
 
 3. Allow to collect data for some period, note if looking at UnusedIndexes the period should encompass all use cases, e.g. end of month processing
-4. Issue commands - e.g. see IndexDuplicate example below
+
+4. Issue commands - for example, detect all index related issues
+
+`$ bin/pgmaven --dbname demo --detect IndexIssues`
+
+5. **Carefully** review the suggestions provided to remediate the issues
+
 
 ## Issues
 
@@ -28,6 +34,7 @@
  - IndexDuplicate - Duplicate index, one of the pair should be dropped
  - IndexHighWriteLargeNonBtree
  - IndexLowScansHighWrites
+ - IndexMissing - Potentially missing index, review queries
  - IndexOverlapping - Index overlaps with another index
  - IndexSeldomUsedLarge - Index is seldom used and on a large table, is it warranted?
  - IndexSmall - Index is on a small table, is it productive?
@@ -45,7 +52,7 @@ The following will detect all index-related issues
 
 `$ bin/pgmaven --dbname demo --detect IndexIssues`
 
-The following will just scan for index duplicates
+The following will scan for duplicates indexes
 
 `$ bin/pgmaven --dbname demo --detect IndexIssues:IndexDuplicate`
 
@@ -60,9 +67,10 @@ The following will just scan for index duplicates
     	DROP INDEX silly_key
 
 ### Table Issues Detected
- - TableBloat
- - TableGrowth
- - TableSizeLarge
+ - TableAnalyze - No stats available, suggest Analyze
+ - TableBloat - Table is bloated, suggest vacuum
+ - TableGrowth - Table is growing quickly, suggest review
+ - TableSizeLarge - Table is large and not partioned, suggest partitioning and/or pruning
 
 ### Examples
 
@@ -78,7 +86,11 @@ The following will detect all table-related issues
     SUGGESTION:
             REVIEW table - consider partitioning and/or pruning
 
-`$ bin/pgmaven --dbname demo --detect Queries --duration 24h`
+### Query Issues Detected
+
+The following will report on all high impact issues in the last 24 hours
+
+`$ bin/pgmaven --dbname demo --detect QueryIssues --duration 24h`
 
 ## Commands
 
@@ -113,3 +125,14 @@ The following will detect all table-related issues
 `$ go build -o bin/pgagent cmd/pgagent/*.go`
 
 `$ go list -m -u all`
+
+## History
+View the [changelog](https://github.com/tsegall/pgmaven/blob/main/ChangeLog.md).
+
+## Contributing
+
+Contributions welcome.
+
+- [Report isues](https://github.com/tsegall/fta/issues)
+- Fix issues and [submit pull requests](https://github.com/tsegall/pgmaven/pulls)
+- Suggest new features

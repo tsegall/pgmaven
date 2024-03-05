@@ -1,6 +1,9 @@
 
 ## Changes ##
 
+### 0.17.0
+ - ENH: Add IndexMissing to Detect/IndexIssues
+
 ### 0.16.0
  - ENH: Tune Detect/IndexIssues:IndexOverlapping
 
