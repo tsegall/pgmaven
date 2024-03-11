@@ -8,20 +8,35 @@ import (
 
 type MonitorReset struct {
 	datasource *dbutils.DataSource
+	context    utils.Context
 }
 
 func (c *MonitorReset) Init(context utils.Context, ds *dbutils.DataSource) {
 	c.datasource = ds
+	c.context = context
 }
 
 func (c *MonitorReset) Execute(args ...string) {
-	// Reset all Index data
-	err, _ := c.datasource.ExecuteQueryRow(`select pg_stat_reset();`, nil)
-	if err != nil {
-		log.Printf("ERROR: Database %s, MonitorReset failed with error: %v\n", c.datasource.GetDBName(), err)
+	resetStatement := "select pg_stat_reset();"
+
+	if c.context.DryRun || c.context.Verbose {
+		log.Println(resetStatement)
+	}
+
+	if !c.context.DryRun {
+		// Reset all Index data
+		_, err := c.datasource.ExecuteQueryRow(resetStatement, nil)
+		if err != nil {
+			log.Printf("ERROR: Database %s, MonitorReset failed with error: %v\n", c.datasource.GetDBName(), err)
+		}
 	}
 
 	// We have reset the index data so also need to restart our tracking
-	new(MonitorTerminate).Execute()
-	new(MonitorInitialize).Execute()
+	terminate := new(MonitorTerminate)
+	terminate.Init(c.context, c.datasource)
+	terminate.Execute()
+
+	initialize := new(MonitorInitialize)
+	initialize.Init(c.context, c.datasource)
+	initialize.Execute()
 }

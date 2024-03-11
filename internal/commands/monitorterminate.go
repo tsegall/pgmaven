@@ -9,10 +9,12 @@ import (
 
 type MonitorTerminate struct {
 	datasource *dbutils.DataSource
+	context    utils.Context
 }
 
 func (c *MonitorTerminate) Init(context utils.Context, ds *dbutils.DataSource) {
 	c.datasource = ds
+	c.context = context
 }
 
 func (c *MonitorTerminate) Execute(args ...string) {
@@ -27,9 +29,16 @@ func (c *MonitorTerminate) dropTables() {
 }
 
 func (c *MonitorTerminate) dropTable(tableName string) {
-	query := fmt.Sprintf("DROP TABLE IF EXISTS pgmaven_%s;", tableName)
-	_, err := c.datasource.GetDatabase().Exec(query)
-	if err != nil {
-		log.Printf("ERROR: Database %s, dropTable table deletion failed with error: %s\n", c.datasource.GetDBName(), err)
+	dropStatement := fmt.Sprintf("DROP TABLE IF EXISTS pgmaven_%s;", tableName)
+
+	if c.context.DryRun || c.context.Verbose {
+		log.Println(dropStatement)
+	}
+
+	if !c.context.DryRun {
+		_, err := c.datasource.GetDatabase().Exec(dropStatement)
+		if err != nil {
+			log.Printf("ERROR: Database %s, dropTable table deletion failed with error: %s\n", c.datasource.GetDBName(), err)
+		}
 	}
 }

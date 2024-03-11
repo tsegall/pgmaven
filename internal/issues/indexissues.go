@@ -23,12 +23,13 @@ type index struct {
 	dropped    bool
 }
 
+var tableSizes map[string]int64
+
 type IndexIssues struct {
 	datasource    *dbutils.DataSource
 	issues        []utils.Issue
 	timing        utils.Timing
 	specificIssue string
-	tableSizes    map[string]int64
 	indexes       map[string]*index
 }
 
@@ -199,6 +200,14 @@ func indexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 	tableSize := (*values[7].(*interface{})).(string)
 	indexDefinition := (*values[8].(*interface{})).(string)
 
+	d.sizeSmallTables()
+
+	size, ok := tableSizes[tableName]
+	if ok && size == 0 {
+		// Ignoring indexes for table with no rows
+		return
+	}
+
 	if d.isIssueEnabled(indexIssue) {
 		tableDetail := fmt.Sprintf("Table: %s, Index Size: %s, Table Size: %s, Unused indexes (%s)\n", tableName, indexSize, tableSize, indexName)
 		indexDetail := fmt.Sprintf("Index definition: '%s'\n", indexDefinition)
@@ -256,7 +265,17 @@ func duplicateIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, value
 }
 
 func (d *IndexIssues) doSmall() {
-	d.tableSizes = make(map[string]int64)
+	d.sizeSmallTables()
+
+	d.doSmallCheck()
+}
+
+func (d *IndexIssues) sizeSmallTables() {
+	if tableSizes != nil {
+		return
+	}
+
+	tableSizes = make(map[string]int64)
 
 	tableQuery := `
 	select
@@ -292,8 +311,6 @@ order by
 	if err != nil {
 		log.Printf("ERROR: Database: %s, Table query failed, error: %v\n", d.datasource.GetDBName(), err)
 	}
-
-	d.doSmallCheck()
 }
 
 func smallTableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
@@ -306,13 +323,13 @@ func smallTableProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []
 		log.Printf("ERROR: Database: %s, Query '%s' failed, error: %v\n", d.datasource.GetDBName(), query, err)
 	}
 
-	d.tableSizes[tableName] = rows.(int64)
+	tableSizes[tableName] = rows.(int64)
 }
 
 func (d *IndexIssues) doSmallCheck() {
 	var inClause strings.Builder
 
-	for tableName, value := range d.tableSizes {
+	for tableName, value := range tableSizes {
 		if value < smallTable {
 			if inClause.Len() != 0 {
 				inClause.WriteString(", ")
@@ -362,15 +379,13 @@ func smallIndexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []
 	indexSize := (*values[3].(*interface{})).(int64)
 	indexDefinition := (*values[4].(*interface{})).(string)
 
-	tableDetail := fmt.Sprintf("Table: %s, Rows: %d, Index Size: %d, Small indexes (%s)\n", tableName, d.tableSizes[tableName], indexSize, indexName)
+	tableDetail := fmt.Sprintf("Table: %s, Rows: %d, Index Size: %d, Small indexes (%s)\n", tableName, tableSizes[tableName], indexSize, indexName)
 	indexDetail := fmt.Sprintf("Index definition: '%s'\n", indexDefinition)
 
 	d.issues = append(d.issues, utils.Issue{IssueType: "IndexSmall", Target: indexName, Severity: utils.High, Detail: tableDetail + indexDetail, Solution: fmt.Sprintf("DROP INDEX \"%s\"\n", indexName)})
 }
 
 func (d *IndexIssues) doIndexBloat() {
-	d.tableSizes = make(map[string]int64)
-
 	indexBloatQuery := `
 WITH btree_index_atts AS (
     SELECT nspname, relname, reltuples, relpages, indrelid, relam,
@@ -480,8 +495,6 @@ func bloatProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 }
 
 func (d *IndexIssues) doIndexMissing() {
-	d.tableSizes = make(map[string]int64)
-
 	indexMissingQuery := `
 SELECT
 schemaname,
@@ -525,7 +538,6 @@ func missingProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []int
 }
 
 func (d *IndexIssues) doOverlapping() {
-	d.tableSizes = make(map[string]int64)
 	d.indexes = make(map[string]*index)
 
 	indexOverlappingQuery := `

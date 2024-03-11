@@ -133,6 +133,6 @@ View the [changelog](https://github.com/tsegall/pgmaven/blob/main/ChangeLog.md).
 
 Contributions welcome.
 
-- [Report isues](https://github.com/tsegall/fta/issues)
+- [Report issues](https://github.com/tsegall/fta/issues)
 - Fix issues and [submit pull requests](https://github.com/tsegall/pgmaven/pulls)
 - Suggest new features

@@ -87,6 +87,11 @@ func tableIssuesProcessor(rowNumber int, columnTypes []*sql.ColumnType, values [
 	timeDiff := maxInsertDt.Sub(minInsertDt).Milliseconds() / 1000
 	countDiff := maxRows - minRows
 
+	if maxRows == 0 {
+		d.issues = append(d.issues, utils.Issue{IssueType: "TableEmpty", Target: tableName, Detail: "Table has no rows\n", Severity: utils.Low, Solution: "REVIEW table - is it active?\n"})
+		return
+	}
+
 	const daySeconds = 24 * 60 * 60
 
 	if timeDiff < daySeconds/2 {
@@ -99,7 +104,8 @@ func tableIssuesProcessor(rowNumber int, columnTypes []*sql.ColumnType, values [
 	dailyPercent := 100 * rowsPerDay / float32(maxRows)
 
 	if d.isIssueEnabled("TableGrowth") && maxRows > minTableReport && dailyPercent > tableGrowthThreshold {
-		detail := fmt.Sprintf("Table: %s, current rows: %d, is growing at %.2f%% per day\n%s", tableName, maxRows, dailyPercent, d.getUnusedIndexes(tableName))
+		detail := fmt.Sprintf("Table: %s, current rows: %d, is growing at %.2f%% per day\n%s",
+			tableName, maxRows, dailyPercent, d.getUnusedIndexes(tableName))
 		d.issues = append(d.issues, utils.Issue{IssueType: "TableGrowth", Target: tableName, Detail: detail, Severity: utils.Medium, Solution: "REVIEW table - consider partitioning and/or pruning\n"})
 	}
 
@@ -110,7 +116,8 @@ SELECT count(*)
 	WHERE  inhparent = $1::regclass`
 		partitionCount, _ := d.datasource.ExecuteQueryRow(isPartitionedQuery, []any{tableName})
 		if partitionCount.(int64) == 0 {
-			detail := fmt.Sprintf("Table: %s, current rows: %.2fM, insert only: %t, is large and not partitioned\n%s", tableName, float32(maxRows)/10000000.0, changes == 0, d.getUnusedIndexes(tableName))
+			detail := fmt.Sprintf("Table: %s, current rows: %.2fM, insert only: %t, is large and not partitioned\n%s",
+				tableName, float32(maxRows)/10000000.0, changes == 0, d.getUnusedIndexes(tableName))
 			d.issues = append(d.issues, utils.Issue{IssueType: "TableSizeLarge", Target: tableName, Severity: utils.Medium, Detail: detail, Solution: "REVIEW table - consider partitioning and/or pruning\n"})
 		}
 	}

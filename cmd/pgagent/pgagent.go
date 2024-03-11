@@ -94,9 +94,12 @@ func main() {
 		dbnames = []string{optionsDB.DBName}
 	}
 
+	connectionIntact := true
 	for {
-		for _, dbName := range dbnames {
+		dbs := len(dbnames)
+		failures := 0
 
+		for _, dbName := range dbnames {
 			if strings.Trim(dbName, " ") == "" {
 				continue
 			}
@@ -117,7 +120,11 @@ func main() {
 
 			err = db.Ping()
 			if err != nil {
-				log.Printf("ERROR: Database: %s, failed to ping database, error: %v\n", dbName, err)
+				// Don't bother reporting the issue if we know the connection is broken, it will be reported the first time
+				if connectionIntact {
+					log.Printf("ERROR: Database: %s, failed to ping database, error: %v\n", dbName, err)
+				}
+				failures++
 				continue
 			}
 
@@ -134,6 +141,16 @@ func main() {
 			db.Close()
 		}
 
-		time.Sleep(options.Frequency)
+		// If we failed to connect to any DB then mark the connection as broken, and sleep for a shorter period before retrying
+		if failures == dbs {
+			time.Sleep(5 * DurationMin)
+			connectionIntact = false
+		} else {
+			if !connectionIntact {
+				log.Printf("ERROR: Connection re-established\n")
+				connectionIntact = true
+			}
+			time.Sleep(options.Frequency)
+		}
 	}
 }

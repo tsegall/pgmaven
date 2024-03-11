@@ -1,6 +1,10 @@
 
 ## Changes ##
 
+### 0.18.0
+ - ENH: If agent loses connectivity then report once and retry more often until connection established
+ - ENH: Add --dryrun option to report what would be done for some commands
+
 ### 0.17.0
  - ENH: Add IndexMissing to Detect/IndexIssues
 

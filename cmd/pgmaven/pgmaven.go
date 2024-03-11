@@ -47,6 +47,7 @@ func main() {
 
 	optionsDB.Init()
 
+	flag.BoolVar(&context.DryRun, "dryrun", false, "report database commands - do not execute")
 	flag.DurationVar(&context.Duration, "duration", DurationWeek, "Duration of analysis - default week")
 	flag.DurationVar(&context.DurationOffset, "durationOffset", 0, "Duration offset (from now) - 0")
 	flag.BoolVar(&context.Verbose, "verbose", false, "enable verbose logging")
