@@ -1,6 +1,9 @@
 
 ## Changes ##
 
+### 0.19.0
+ - ENH: Add IndexLowCardinalityColumn to Detect/IndexIssues - detect indexes where one column in index has very low cardinality
+
 ### 0.18.0
  - ENH: If agent loses connectivity then report once and retry more often until connection established
  - ENH: Add --dryrun option to report what would be done for some commands

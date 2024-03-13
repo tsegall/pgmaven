@@ -48,8 +48,8 @@ func (d *IndexIssues) Execute(args ...string) {
 		d.specificIssue = args[0]
 	}
 
-	if d.isIssueEnabled("IndexDuplicate") || d.isIssueEnabled("IndexSmall") || d.isIssueEnabled("IndexBloat") ||
-		d.isIssueEnabled("IndexOverlapping") || d.isIssueEnabled("IndexMissing") {
+	if d.isIssueEnabled("IndexBloat") || d.isIssueEnabled("IndexDuplicate") || d.isIssueEnabled("IndexLowCardinalityColumn") ||
+		d.isIssueEnabled("IndexOverlapping") || d.isIssueEnabled("IndexMissing") || d.isIssueEnabled("IndexSmall") {
 		if d.isIssueEnabled("IndexBloat") {
 			d.doIndexBloat()
 		}
@@ -68,6 +68,10 @@ func (d *IndexIssues) Execute(args ...string) {
 
 		if d.isIssueEnabled("IndexSmall") {
 			d.doSmall()
+		}
+
+		if d.isIssueEnabled("IndexLowCardinalityColumn") {
+			d.doLowCardinalityColumn()
 		}
 
 		if d.specificIssueEnabled() {
@@ -196,6 +200,8 @@ func indexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 	indexIssue := (*values[0].(*interface{})).(string)
 	tableName := string((*values[2].(*interface{})).([]uint8))
 	indexName := string((*values[3].(*interface{})).([]uint8))
+	indexScanPct := string((*values[4].(*interface{})).([]uint8))
+	scansPerWrite := string((*values[5].(*interface{})).([]uint8))
 	indexSize := (*values[6].(*interface{})).(string)
 	tableSize := (*values[7].(*interface{})).(string)
 	indexDefinition := (*values[8].(*interface{})).(string)
@@ -209,7 +215,8 @@ func indexProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 	}
 
 	if d.isIssueEnabled(indexIssue) {
-		tableDetail := fmt.Sprintf("Table: %s, Index Size: %s, Table Size: %s, Unused indexes (%s)\n", tableName, indexSize, tableSize, indexName)
+		tableDetail := fmt.Sprintf("Table: %s, Index Size: %s, Table Size: %s, %s index, Scan %%: %s, Scans/write: %s (%s)\n",
+			tableName, indexSize, tableSize, indexIssue, indexScanPct, scansPerWrite, indexName)
 		indexDetail := fmt.Sprintf("Index definition: '%s'\n", indexDefinition)
 		var solution string
 		if indexIssue != "IndexHighWriteLargeNonBtree" {
@@ -632,12 +639,16 @@ func overlappingProcessor(rowNumber int, columnTypes []*sql.ColumnType, values [
 		replacedDetail := fmt.Sprintf("Replaced by '%s', index on '%s', Size: %s, Scans: %d\nIndex Definition: '%s'\n",
 			indexName, indexCols, indexSize, indexScans, indexDefinition)
 
-		replacementUtilization := float32(indexScans*100) / float32(indexScans+superceded.scans)
-		replacementRelativeSize := float32(indexSizeBytes) / float32(superceded.sizeBytes)
-
 		var note string
-		if !isUnique && replacementRelativeSize > 1.5 && replacementUtilization < .1 {
-			note = " -- NOTE: replacement is lightly utilized and significantly larger, consider dropping \"" + indexName + "\" instead"
+		if !isUnique {
+			replacementUtilization := float32(indexScans*100) / float32(indexScans+superceded.scans)
+			replacementRelativeSize := float32(indexSizeBytes) / float32(superceded.sizeBytes)
+
+			if replacementUtilization < 1.0 {
+				note = " -- NOTE: replacement is extremely lightly used,  consider dropping \"" + indexName + "\" instead"
+			} else if replacementRelativeSize > 1.5 && replacementUtilization < 10.0 {
+				note = " -- NOTE: replacement is lightly utilized and significantly larger, consider dropping \"" + indexName + "\" instead"
+			}
 		}
 
 		solution := fmt.Sprintf("DROP INDEX \"%s\"%s\n", superceded.indexName, note)
@@ -647,6 +658,64 @@ func overlappingProcessor(rowNumber int, columnTypes []*sql.ColumnType, values [
 		// Mark as dropped - so we don't drop it again
 		superceded.dropped = true
 	}
+}
+
+func (d *IndexIssues) doLowCardinalityColumn() {
+	lowCardinalityColumnQuery :=
+		`with index_cols as (
+			SELECT indexrelid,
+				idx.indexrelid::regclass AS indexname,
+				   k.i AS index_order,
+				   --i.indnkeyatts,
+				   coalesce(att.attname,
+							(('{' || pg_get_expr(
+										idx.indexprs,
+										idx.indrelid
+									 )
+								  || '}')::text[]
+							)[k.i]
+						   ) AS index_column,
+				   pg_index_column_has_property(idx.indexrelid,k.i::int,'asc') AS ascending,
+				   k.i != -1 AS is_key
+			FROM pg_index idx
+			   CROSS JOIN LATERAL unnest(idx.indkey) WITH ORDINALITY AS k(attnum, i)
+			   LEFT JOIN pg_attribute AS att
+				  ON idx.indrelid = att.attrelid AND k.attnum = att.attnum
+			where idx.indisunique = false
+			)
+			select psui.schemaname, relname as tablename, indexrelname as indexname, idx_scan, index_column, most_common_vals, pg_size_pretty(pg_relation_size(psui.indexrelid)) as index_size, indexdef
+			from pg_stat_user_indexes psui, index_cols, pg_stats stats, pg_indexes
+			  where psui.indexrelid = index_cols.indexrelid
+				and stats.schemaname = pg_indexes.schemaname AND stats.tablename = pg_indexes.tablename AND stats.attname = index_column and pg_indexes.indexname = indexrelname
+				and psui.schemaname = $1
+				and relname = stats.tablename
+				and index_column = stats.attname
+				and idx_scan > 0
+				and n_distinct = 1
+				and null_frac < .5
+			order by relname, indexrelname`
+
+	err := d.datasource.ExecuteQueryRows(lowCardinalityColumnQuery, []any{d.datasource.GetSchema()}, lowCardinalityProcessor, d)
+	if err != nil {
+		log.Printf("ERROR: Database: %s, Low Cardinality Column query failed with error: %v\n", d.datasource.GetDBName(), err)
+	}
+}
+
+func lowCardinalityProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
+	d := self.(*IndexIssues)
+	tableName := string((*values[1].(*interface{})).([]uint8))
+	indexName := string((*values[2].(*interface{})).([]uint8))
+	indexScans := (*values[3].(*interface{})).(int64)
+	indexColumn := string((*values[4].(*interface{})).([]uint8))
+	mostCommonValues := string((*values[5].(*interface{})).([]uint8))
+	indexSize := (*values[6].(*interface{})).(string)
+	indexDefinition := (*values[7].(*interface{})).(string)
+
+	detail := fmt.Sprintf("Table: %s Index: '%s', Size: %s, Column: '%s', Single-valued: '%s', Scans: %d\nIndex Definition: %s\n",
+		tableName, indexName, indexSize, indexColumn, mostCommonValues, indexScans, indexDefinition)
+
+	d.issues = append(d.issues, utils.Issue{IssueType: "IndexLowCardinalityColumn", Target: indexName, Severity: utils.Medium, Detail: detail,
+		Solution: fmt.Sprintf("-- Consider dropping '%s' from index '%s'\n", indexColumn, indexName)})
 }
 
 func (d *IndexIssues) GetIssues() []utils.Issue {

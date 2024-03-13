@@ -34,6 +34,7 @@
  - IndexDuplicate - Duplicate index, one of the pair should be dropped
  - IndexHighWriteLargeNonBtree
  - IndexLowScansHighWrites
+ - IndexLowCardinalityColumn - One column in index has very low cardinality
  - IndexMissing - Potentially missing index, review queries
  - IndexOverlapping - Index overlaps with another index
  - IndexSeldomUsedLarge - Index is seldom used and on a large table, is it warranted?
@@ -69,6 +70,7 @@ The following will scan for duplicates indexes
 ### Table Issues Detected
  - TableAnalyze - No stats available, suggest Analyze
  - TableBloat - Table is bloated, suggest vacuum
+ - TableEmpty - Table has no rows (ignored for index-related issues)
  - TableGrowth - Table is growing quickly, suggest review
  - TableSizeLarge - Table is large and not partioned, suggest partitioning and/or pruning
 
