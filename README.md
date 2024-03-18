@@ -24,10 +24,17 @@
 |Issue|Description|
 |-----|-----------|
 |All|Execute all|
+|ConfigIssues|Analyze configuration for issues|
 |Help|Output usage|
 |IndexIssues|Analyze indexes for issues|
 |Queries|Report queries with significant impact on the system|
 |TableIssues|Analyze tables for issues|
+
+### Configuration Issues
+
+The following example will detect all config-related issues
+
+`$ bin/pgmaven --dbname demo --detect ConfigIssues`
 
 ### Index Issues Detected
  - IndexBloat - Index is bloated, should it be reindexed?

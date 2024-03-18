@@ -147,7 +147,7 @@ func main() {
 			connectionIntact = false
 		} else {
 			if !connectionIntact {
-				log.Printf("ERROR: Connection re-established\n")
+				log.Printf("ERROR: Database: %s, Connection re-established\n", dbnames[0])
 				connectionIntact = true
 			}
 			time.Sleep(options.Frequency)

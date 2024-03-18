@@ -3,7 +3,14 @@ package utils
 import (
 	"log"
 	"os"
+	"strconv"
 	"strings"
+)
+
+const (
+	SIZE_GB = 1024 * 1024 * 1024
+	SIZE_MB = 1024 * 1024
+	SIZE_KB = 1024
 )
 
 // If the first character is a '!' then assume what follows is a file containing the text
@@ -43,4 +50,88 @@ func QuoteIfNeeded(s string) string {
 	}
 
 	return "\"" + s + "\""
+}
+
+var shorthand = [...]string{
+	"1", "2", "4", "8", "16", "32", "64", "128", "256", "512",
+	"1KB", "2KB", "4KB", "8KB", "16KB", "32KB", "64KB", "128KB", "256KB", "512KB",
+	"1MB", "2MB", "4MB", "8MB", "16MB", "32MB", "64MB", "128MB", "256MB", "512MB",
+	"1GB", "2GB", "4GB", "8GB", "16GB", "32GB", "64GB", "128GB", "256GB", "512GB",
+}
+
+func PrettyPrint(v int64) string {
+	if v == 0 {
+		return "0"
+	}
+
+	msb := MSB(v)
+
+	// If we are a power of two we are done
+	if v == 1<<msb {
+		return shorthand[MSB(v)]
+	}
+
+	lsb := LSB(v)
+	if lsb < 10 {
+		return strconv.FormatInt(v, 10)
+	} else if lsb < 20 {
+		return strconv.FormatInt(v>>10, 10) + "kB"
+	} else if lsb < 30 {
+		return strconv.FormatInt(v>>20, 10) + "MB"
+	}
+
+	return strconv.FormatInt(v>>30, 10) + "GB"
+}
+
+func CleartoKB(v int64) int64 {
+	return (v >> 10) << 10
+}
+
+func CleartoMB(v int64) int64 {
+	return (v >> 20) << 20
+}
+
+func CleartoGB(v int64) int64 {
+	return (v >> 30) << 30
+}
+
+func PgUnitsToBytes(v int64, units string) int64 {
+	var multiplier int64
+	if units == "B" {
+		multiplier = 1
+	} else if units == "kB" {
+		multiplier = 1024
+	} else if units == "8kB" {
+		multiplier = 8 * 1024
+	} else if units == "MB" {
+		multiplier = 1024 * 1024
+	}
+
+	return v * multiplier
+}
+
+func LSB(v int64) (r int) {
+	if v == 0 {
+		return -1
+	}
+
+	for (v & 1) == 0 {
+		v >>= 1
+		r++
+	}
+
+	return
+}
+
+func MSB(v int64) (r int) {
+	if v == 0 {
+		return -1
+	}
+
+	for (v >> 1) != 0 {
+		v = v >> 1
+		r++
+	}
+
+	return
 }

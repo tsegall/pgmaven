@@ -23,7 +23,7 @@ func (d *AllIssues) Init(context utils.Context, ds *dbutils.DataSource) {
 func (d *AllIssues) Execute(args ...string) {
 	startMS := time.Now().UnixMilli()
 
-	routines := []string{"TableIssues", "IndexIssues"}
+	routines := []string{"ConfigIssues", "TableIssues", "IndexIssues"}
 
 	for _, element := range routines {
 		sub, err := NewDetector(element)

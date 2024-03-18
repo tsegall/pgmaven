@@ -29,7 +29,7 @@ var commandRegistry map[string]CommandDetails = map[string]CommandDetails{
 	"Summary":           {"Status summary", func() Command { return &Summary{} }},
 }
 
-var StatsTables = [...]string{"pg_stat_user_indexes", "pg_statio_user_indexes", "pg_stat_user_tables", "pg_statio_user_tables", "pg_stat_statements"}
+var StatsTables = [...]string{"pg_stat_user_indexes", "pg_statio_user_indexes", "pg_stat_user_tables", "pg_statio_user_tables", "pg_stat_statements", "pg_stat_activity"}
 
 func NewCommand(name string) (cmd Command, err error) {
 

@@ -1,6 +1,10 @@
 
 ## Changes ##
 
+### 0.20.0
+ - ENH: Add pg_stat_activity to the list of tables that we snapshot (provides number of active connections)
+ - ENH: Add Detect/ConfigIssues
+
 ### 0.19.0
  - ENH: Add IndexLowCardinalityColumn to Detect/IndexIssues - detect indexes where one column in index has very low cardinality
 

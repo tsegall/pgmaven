@@ -19,11 +19,12 @@ type DetectorDetails struct {
 }
 
 var detectorRegistry map[string]DetectorDetails = map[string]DetectorDetails{
-	"All":         {"Execute all ", func() Detector { return &AllIssues{} }},
-	"Help":        {"Output usage", func() Detector { return &Help{} }},
-	"IndexIssues": {"Analyze indexes for issues", func() Detector { return &IndexIssues{} }},
-	"QueryIssues": {"Report queries with significant impact on the system", func() Detector { return &QueryIssues{} }},
-	"TableIssues": {"Analyze tables for issues", func() Detector { return &TableIssues{} }},
+	"All":          {"Execute all ", func() Detector { return &AllIssues{} }},
+	"Help":         {"Output usage", func() Detector { return &Help{} }},
+	"ConfigIssues": {"Analyze configuration for issues", func() Detector { return &ConfigIssues{} }},
+	"IndexIssues":  {"Analyze indexes for issues", func() Detector { return &IndexIssues{} }},
+	"QueryIssues":  {"Report queries with significant impact on the system", func() Detector { return &QueryIssues{} }},
+	"TableIssues":  {"Analyze tables for issues", func() Detector { return &TableIssues{} }},
 }
 
 func NewDetector(name string) (d Detector, err error) {
