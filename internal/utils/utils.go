@@ -54,7 +54,7 @@ func QuoteIfNeeded(s string) string {
 
 var shorthand = [...]string{
 	"1", "2", "4", "8", "16", "32", "64", "128", "256", "512",
-	"1KB", "2KB", "4KB", "8KB", "16KB", "32KB", "64KB", "128KB", "256KB", "512KB",
+	"1kB", "2kB", "4kB", "8kB", "16kB", "32kB", "64kB", "128kB", "256kB", "512kB",
 	"1MB", "2MB", "4MB", "8MB", "16MB", "32MB", "64MB", "128MB", "256MB", "512MB",
 	"1GB", "2GB", "4GB", "8GB", "16GB", "32GB", "64GB", "128GB", "256GB", "512GB",
 }

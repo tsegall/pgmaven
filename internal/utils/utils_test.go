@@ -59,8 +59,8 @@ func TestLSB(t *testing.T) {
 func TestPrettyPrint(t *testing.T) {
 	var v int64 = 128 * 1024
 	pretty := PrettyPrint(v)
-	if pretty != "128KB" {
-		t.Fatalf("expected 128KB, found %s", pretty)
+	if pretty != "128kB" {
+		t.Fatalf("expected 128kB, found %s", pretty)
 	}
 
 	v = 128 * 1024 * 1024
@@ -82,8 +82,8 @@ func TestPrettyPrint(t *testing.T) {
 	}
 	v = 12 * 1024
 	pretty = PrettyPrint(v)
-	if pretty != "12KB" {
-		t.Fatalf("expected 12KB, found %s", pretty)
+	if pretty != "12kB" {
+		t.Fatalf("expected 12kB, found %s", pretty)
 	}
 	v = 12 * 1024 * 1024
 	pretty = PrettyPrint(v)

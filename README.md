@@ -36,7 +36,7 @@ The following example will detect all config-related issues
 
 `$ bin/pgmaven --dbname demo --detect ConfigIssues`
 
-### Index Issues Detected
+### Index Issues
  - IndexBloat - Index is bloated, should it be reindexed?
  - IndexDuplicate - Duplicate index, one of the pair should be dropped
  - IndexHighWriteLargeNonBtree
@@ -74,7 +74,7 @@ The following will scan for duplicates indexes
     SUGGESTION:
     	DROP INDEX silly_key
 
-### Table Issues Detected
+### Table Issues
  - TableAnalyze - No stats available, suggest Analyze
  - TableBloat - Table is bloated, suggest vacuum
  - TableEmpty - Table has no rows (ignored for index-related issues)
@@ -97,7 +97,7 @@ The following will detect all table-related issues
 
 ### Query Issues Detected
 
-The following will report on all high impact issues in the last 24 hours
+The following will report on all high impact queries in the last 24 hours
 
 `$ bin/pgmaven --dbname demo --detect QueryIssues --duration 24h`
 

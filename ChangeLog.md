@@ -1,6 +1,9 @@
 
 ## Changes ##
 
+### 0.21.0
+ - BUG: Fix tests
+
 ### 0.20.0
  - ENH: Add pg_stat_activity to the list of tables that we snapshot (provides number of active connections)
  - ENH: Add Detect/ConfigIssues
