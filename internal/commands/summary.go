@@ -23,7 +23,7 @@ func (c *Summary) Execute(args ...string) {
 		log.Fatalf("Summary: Failed to check for existence of pgmaven tables, err: %v\n", err)
 	}
 	if count.(int64) == 0 {
-		log.Fatalf("Summary: No pgmaven tables exist, has CreateTables been run?\n")
+		log.Fatalf("Summary: No pgmaven tables exist, has MonitorInitialize been run?\n")
 	}
 
 	query := `
@@ -32,6 +32,8 @@ func (c *Summary) Execute(args ...string) {
 	select 'ServerStartTime', pg_postmaster_start_time()::text
 	union all
 	select 'DatabaseName', $1
+	union all
+	select 'DatabaseSize', pg_size_pretty(pg_database_size(current_database()))
 	union all
 	select 'pg_stat_statements', CASE WHEN setting ilike('%pg_stat_statements%') THEN 'Enabled' ELSE 'Disabled' END from pg_settings where name = 'shared_preload_libraries'
 	union all

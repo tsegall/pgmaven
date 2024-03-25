@@ -129,10 +129,10 @@ func (d *ConfigIssues) analyzeSettings() {
 			effectiveCacheSize := utils.PgUnitsToBytes(currentValue, s.units)
 			if issue := testRange(effectiveCacheSize, int64(0.8*target), int64(1.2*target)); issue != "" {
 				d.issues = append(d.issues, utils.Issue{IssueType: "Config", Target: name,
-					Detail: fmt.Sprintf("Setting: %s, value(units): %s %s (%.2fGB) - %s\n",
+					Detail: fmt.Sprintf("Setting: %s, value(units): %s %s (%.2fGB) - %s\nGoal: Total RAM * 0.5\n",
 						name, s.value, s.units, float32(effectiveCacheSize)/float32(utils.SIZE_GB), issue),
 					Severity: utils.High,
-					Solution: fmt.Sprintf("Goal: Total RAM * 0.5\nUpdate postgresql.conf - '%s = %s'\n", name, utils.PrettyPrint(utils.CleartoGB(int64(target))))})
+					Solution: fmt.Sprintf("Update postgresql.conf - '%s = %s'\n", name, utils.PrettyPrint(utils.CleartoGB(int64(target))))})
 			}
 		case "maintenance_work_mem":
 			// Target = Total RAM * 0.05
@@ -141,20 +141,20 @@ func (d *ConfigIssues) analyzeSettings() {
 			maintenanceWorkMem := utils.PgUnitsToBytes(currentValue, s.units)
 			if issue := testRange(maintenanceWorkMem, int64(0.5*target), int64(1.5*target)); issue != "" {
 				d.issues = append(d.issues, utils.Issue{IssueType: "Config", Target: name,
-					Detail: fmt.Sprintf("Setting: %s, value(units): %s %s (%.2fMB) - %s\n",
+					Detail: fmt.Sprintf("Setting: %s, value(units): %s %s (%.2fMB) - %s\nGoal: Total RAM * 0.05\n",
 						name, s.value, s.units, float32(maintenanceWorkMem)/float32(utils.SIZE_MB), issue),
 					Severity: utils.High,
-					Solution: fmt.Sprintf("Goal: Total RAM * 0.05\nUpdate postgresql.conf - '%s = %s'\n", name, utils.PrettyPrint(utils.CleartoMB(int64(target))))})
+					Solution: fmt.Sprintf("Update postgresql.conf - '%s = %s'\n", name, utils.PrettyPrint(utils.CleartoMB(int64(target))))})
 			}
 		case "shared_buffers":
 			// Target = 15% to 25% of the machine’s total RAM
 			shared_buffers, _ := strconv.ParseInt(s.value, 10, 64)
 			if issue := testRange(shared_buffers, int64(0.15*float32(memoryBuffers)), int64(0.25*float32(memoryBuffers))); issue != "" {
 				d.issues = append(d.issues, utils.Issue{IssueType: "Config", Target: name,
-					Detail: fmt.Sprintf("Setting: %s, value(units): %s %s (%.2fGB) - %s\n",
+					Detail: fmt.Sprintf("Setting: %s, value(units): %s %s (%.2fGB) - %s\nGoal: 15%% to 25%% of the machine’s total RAM\n",
 						name, s.value, s.units, float32(utils.PgUnitsToBytes(shared_buffers, s.units))/float32(utils.SIZE_GB), issue),
 					Severity: utils.High,
-					Solution: fmt.Sprintf("Goal: 15%% to 25%% of the machine’s total RAM\nUpdate postgresql.conf - '%s = %s'\n", name, utils.PrettyPrint(int64(memoryTotal/4)))})
+					Solution: fmt.Sprintf("Update postgresql.conf - '%s = %s'\n", name, utils.PrettyPrint(int64(memoryTotal/4)))})
 			}
 		case "work_mem":
 			//	Target = Total RAM * 0.25 / max_connections
@@ -163,11 +163,11 @@ func (d *ConfigIssues) analyzeSettings() {
 			workMem := utils.PgUnitsToBytes(currentValue, s.units)
 			if issue := testRange(workMem, int64(0.8*target), int64(1.2*target)); issue != "" {
 				d.issues = append(d.issues, utils.Issue{IssueType: "Config", Target: name,
-					Detail: fmt.Sprintf("Setting: %s, value(units): %s %s (%.2fMB) - %s\n",
-						name, s.value, s.units, float32(workMem)/float32(utils.SIZE_MB), issue),
+					Detail: fmt.Sprintf("Setting: %s, value(units): %s %s (%.2fMB) - %s\nGoal: Total RAM * 0.25 / max_connections(%d)\n",
+						name, s.value, s.units, float32(workMem)/float32(utils.SIZE_MB), issue, maxConnectionsSetting),
 					Severity: utils.High,
-					Solution: fmt.Sprintf("Goal: Total RAM * 0.25 / max_connections(%d)\nUpdate postgresql.conf -  '%s = %s'\n",
-						maxConnectionsSetting, name, utils.PrettyPrint(utils.CleartoMB(int64(target))))})
+					Solution: fmt.Sprintf("Update postgresql.conf -  '%s = %s'\n",
+						name, utils.PrettyPrint(utils.CleartoMB(int64(target))))})
 			}
 		case "max_connections":
 

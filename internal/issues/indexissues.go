@@ -48,14 +48,19 @@ func (d *IndexIssues) Execute(args ...string) {
 		d.specificIssue = args[0]
 	}
 
-	if d.isIssueEnabled("IndexBloat") || d.isIssueEnabled("IndexDuplicate") || d.isIssueEnabled("IndexLowCardinalityColumn") ||
-		d.isIssueEnabled("IndexOverlapping") || d.isIssueEnabled("IndexMissing") || d.isIssueEnabled("IndexSmall") {
+	if d.isIssueEnabled("IndexBloat") || d.isIssueEnabled("IndexDuplicate") || d.isIssueEnabled("IndexHighNullPercent") ||
+		d.isIssueEnabled("IndexLowCardinalityColumn") || d.isIssueEnabled("IndexOverlapping") || d.isIssueEnabled("IndexMissing") ||
+		d.isIssueEnabled("IndexSmall") {
 		if d.isIssueEnabled("IndexBloat") {
 			d.doIndexBloat()
 		}
 
 		if d.isIssueEnabled("IndexDuplicate") {
 			d.doDuplicate()
+		}
+
+		if d.isIssueEnabled("IndexHighNullPercent") {
+			d.doHighNullPercent()
 		}
 
 		if d.isIssueEnabled("IndexMissing") {
@@ -499,6 +504,67 @@ func bloatProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []inter
 
 	d.issues = append(d.issues, utils.Issue{IssueType: "IndexBloat", Target: indexName, Severity: utils.High, Detail: detail,
 		Solution: fmt.Sprintf("REINDEX INDEX CONCURRENTLY \"%s\"\n", indexName)})
+}
+
+func (d *IndexIssues) doHighNullPercent() {
+	indexHighNullPercentQuery := `
+SELECT
+    s.schemaname,
+    c_table.relname as tablename,
+    c.relname AS indexname,
+    pg_size_pretty(pg_relation_size(c.oid)) AS index_size,
+    a.attname AS indexed_column,
+    CASE s.null_frac
+        WHEN 0 THEN ''
+        ELSE to_char(s.null_frac * 100, '999.00%')
+    END AS null_frac,
+    pg_size_pretty((pg_relation_size(c.oid) * s.null_frac)::bigint) AS expected_saving,
+    ixs.indexdef
+FROM
+    pg_class c
+    JOIN pg_index i ON i.indexrelid = c.oid
+    JOIN pg_attribute a ON a.attrelid = c.oid
+    JOIN pg_class c_table ON c_table.oid = i.indrelid
+    JOIN pg_indexes ixs ON c.relname = ixs.indexname
+    LEFT JOIN pg_stats s ON s.tablename = c_table.relname AND a.attname = s.attname
+WHERE
+    -- Primary key cannot be partial
+    NOT i.indisprimary
+    -- Exclude already partial indexes
+    AND i.indpred IS NULL
+    -- Exclude composite indexes
+    AND array_length(i.indkey, 1) = 1
+    -- Larger than 10MB
+    AND pg_relation_size(c.oid) > 10 * 1024 ^ 2
+    -- Must be btree index
+    AND indexdef ~* 'USING btree'
+    -- Not interested in playing with unique indexes
+    AND not i.indisunique
+    -- Only if a large % are nulls
+    and null_frac > .95
+ORDER BY
+    c_table.relname, c.relname`
+
+	err := d.datasource.ExecuteQueryRows(indexHighNullPercentQuery, nil, highNullProcessor, d)
+	if err != nil {
+		log.Printf("ERROR: Database: %s, High Null Percent query failed with error: %v\n", d.datasource.GetDBName(), err)
+	}
+}
+
+func highNullProcessor(rowNumber int, columnTypes []*sql.ColumnType, values []interface{}, self any) {
+	d := self.(*IndexIssues)
+	tableName := string((*values[1].(*interface{})).([]uint8))
+	indexName := string((*values[2].(*interface{})).([]uint8))
+	indexSize := (*values[3].(*interface{})).(string)
+	indexedColumn := (*values[4].(*interface{})).([]uint8)
+	nullFrac := (*values[5].(*interface{})).(string)
+	indexDefinition := (*values[7].(*interface{})).(string)
+
+	detail := fmt.Sprintf("Table: %s, Index: %s, Index Size: %s, Indexed Column: %s, Null %%: %s\nIndex Definition: '%s'\n",
+		tableName, indexName, indexSize, indexedColumn, nullFrac, indexDefinition)
+
+	d.issues = append(d.issues, utils.Issue{IssueType: "IndexHighNullPercent", Target: indexName, Severity: utils.High, Detail: detail,
+		Solution: fmt.Sprintf("-- Consider adding 'WHERE %s IS NOT NULL' to the index.\n", indexedColumn)})
 }
 
 func (d *IndexIssues) doIndexMissing() {

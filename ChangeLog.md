@@ -1,6 +1,10 @@
 
 ## Changes ##
 
+### 0.22.0
+ - ENH: Add Detect/IndexIssues:IndexHighNullPercent - detect indexes that are mostly indexing nulls
+ - ENH: Output the size of the Database in Command/Summary
+
 ### 0.21.0
  - BUG: Fix tests
 

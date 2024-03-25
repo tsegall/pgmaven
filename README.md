@@ -39,6 +39,7 @@ The following example will detect all config-related issues
 ### Index Issues
  - IndexBloat - Index is bloated, should it be reindexed?
  - IndexDuplicate - Duplicate index, one of the pair should be dropped
+ - IndexHighNullPercent - Detect indexes that are mostly indexing nulls
  - IndexHighWriteLargeNonBtree
  - IndexLowScansHighWrites
  - IndexLowCardinalityColumn - One column in index has very low cardinality
